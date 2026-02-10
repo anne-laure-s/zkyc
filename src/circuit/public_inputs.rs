@@ -10,7 +10,7 @@ use plonky2::{
 
 use crate::{
     core::{credential::Nationality, date::cutoff18_from_today_for_tests},
-    encoding::{conversion::ToPointField, Point},
+    encoding::{Point, conversion::{ToPointField, ToSingleField}},
     issuer,
 };
 
@@ -54,8 +54,8 @@ impl<T: Copy> PublicInputs<T> {
 impl<F: RichField> PublicInputs<F> {
     pub fn new() -> Self {
         Self {
-            cutoff18_days: F::from_canonical_u32(cutoff18_from_today_for_tests()),
-            nat_code: F::from_canonical_u16(Nationality::FR.code()),
+            cutoff18_days: cutoff18_from_today_for_tests().to_field(),
+            nat_code: Nationality::FR.to_field(),
             issuer_pk: issuer::keys::public().0.to_field(),
         }
     }
