@@ -1,3 +1,4 @@
+pub mod credential;
 // Credential requirements: age > 18, nationality = FR
 
 use plonky2::field::extension::Extendable;
@@ -19,10 +20,25 @@ use plonky2::{
 use crate::core::credential::Nationality;
 use crate::core::date::cutoff18_from_today_for_tests;
 use crate::core::{credential::Credential, date::days_from_origin};
+use crate::arith;
 
 const D: usize = 2;
 type C = PoseidonGoldilocksConfig;
 type F = <C as GenericConfig<D>>::F;
+
+pub struct Point<T> {
+    pub x: [T; 5],
+    pub u: [T; 5],
+}
+
+impl<F: Field> Point<F> {
+    pub fn from_point(p: &arith::Point) -> Self {
+        let p_affine = p.to_affine();
+        let x: [F; 5] = p_affine.x.0.map(|x| F::from_canonical_u64(x.to_u64()));
+        let u: [F; 5] = p_affine.u.0.map(|x| F::from_canonical_u64(x.to_u64()));
+        Point { x, u }
+    }
+}
 
 pub struct PublicInputs<T> {
     pub cutoff18_days: T,

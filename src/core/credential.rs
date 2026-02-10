@@ -1,10 +1,18 @@
 use std::fmt::Write;
 
 use chrono::{Datelike, NaiveDate};
+use plonky2::field::types::Field;
 use rand::Rng;
 
 use crate::{
-    core::date::{generate_birth_date, generate_birth_date_minor, generate_expiration_date},
+    circuit,
+    core::{
+        conversion::{ToField, ToPointField, ToSingleField},
+        date::{
+            days_from_origin, generate_birth_date, generate_birth_date_minor,
+            generate_expiration_date,
+        },
+    },
     issuer,
     schnorr::{
         keys::{PublicKey, SecretKey},
@@ -53,6 +61,75 @@ enum PassportNumber {
 
 #[derive(Debug)]
 struct FrenchPassportNumber([u8; 9]);
+
+impl<F: Field> ToSingleField<F> for Gender {
+    fn to_field(&self) -> F {
+        match self {
+            Self::M => F::ZERO,
+            Self::F => F::ONE,
+        }
+    }
+}
+
+impl<F: Field> ToSingleField<F> for Nationality {
+    fn to_field(&self) -> F {
+        self.code().to_field()
+    }
+}
+
+impl<F: Field> ToSingleField<F> for NaiveDate {
+    fn to_field(&self) -> F {
+        days_from_origin(*self).to_field()
+    }
+}
+
+impl<F: Field> ToPointField<F> for Issuer {
+    fn to_field(&self) -> crate::circuit::Point<F> {
+        crate::circuit::Point::from_point(&self.0 .0)
+    }
+}
+
+impl<F: Field> ToField<F, 3> for PassportNumber {
+    fn to_field(&self) -> [F; 3] {
+        match self {
+            Self::French(n) => n.to_field(),
+        }
+    }
+}
+
+impl<F: Field> ToField<F, 3> for FrenchPassportNumber {
+    fn to_field(&self) -> [F; 3] {
+        let fst = {
+            let bytes_32: [u8; 4] = self.0[..4].try_into().unwrap();
+            u32::from_le_bytes(bytes_32)
+        };
+        let snd = {
+            let bytes_32: [u8; 4] = self.0[4..8].try_into().unwrap();
+            u32::from_le_bytes(bytes_32)
+        };
+        let trd = self.0[8] as u32; // le conversion of the last byte
+        vec![fst.to_field(), snd.to_field(), trd.to_field()]
+            .try_into()
+            .unwrap()
+    }
+}
+
+/// for now, 20 chars max, encoded on u32 converted to field elements
+impl<F: Field> ToField<F, 5> for String {
+    fn to_field(&self) -> [F; 5] {
+        let mut res = [F::ZERO; 5];
+        let mut buffer = [0; 4];
+        for (i, c) in self.chars().enumerate() {
+            let i_mod = i % 4;
+            buffer[i_mod] = c as u8;
+            if i_mod == 3 {
+                // FIXME: we expect this to fail if string is bigger than 5 field elements, but we should throw a proper error
+                res[i / 4] = u32::from_le_bytes(buffer).to_field()
+            }
+        }
+        res
+    }
+}
 
 impl Gender {
     fn rnd(rng: &mut impl Rng) -> Self {
@@ -234,5 +311,19 @@ impl Credential {
 
     pub fn check(&self, pk: &PublicKey, signature: &Signature) -> bool {
         signature.verify(&Context::new(pk, self.as_bytes()))
+    }
+
+    pub fn to_field<F: Field>(&self) -> circuit::credential::Credential<F> {
+        circuit::credential::Credential {
+            first_name: self.first_name.0.to_field(),
+            family_name: self.family_name.0.to_field(),
+            birth_date: self.birth_date.to_field(),
+            place_of_birth: self.place_of_birth.0.to_field(),
+            gender: self.gender.to_field(),
+            nationality: self.nationality.to_field(),
+            passport_number: self.passport_number.to_field(),
+            expiration_date: self.expiration_date.to_field(),
+            issuer: self.issuer.to_field(),
+        }
     }
 }
