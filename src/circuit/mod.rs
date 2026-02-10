@@ -20,7 +20,7 @@ use plonky2::{
 use crate::core::credential::Nationality;
 use crate::core::date::cutoff18_from_today_for_tests;
 use crate::core::{credential::Credential, date::days_from_origin};
-use crate::arith;
+use crate::{arith, issuer};
 
 const D: usize = 2;
 type C = PoseidonGoldilocksConfig;
@@ -43,19 +43,27 @@ impl<F: Field> Point<F> {
 pub struct PublicInputs<T> {
     pub cutoff18_days: T,
     pub nat_code: T,
+    pub issuer_pk: Point<T>,
 }
 
 impl<T: Copy> PublicInputs<T> {
-    pub const LEN: usize = 2;
+    pub const LEN: usize = 12;
     pub fn to_list(&self) -> Vec<T> {
-        vec![self.nat_code, self.cutoff18_days]
+        let mut res = vec![self.nat_code, self.cutoff18_days];
+        for &i in self.issuer_pk.x.iter().chain(self.issuer_pk.u.iter()) {
+            res.push(i)
+        }
+        res
     }
 
     pub fn from_list(public_inputs: &[T]) -> Self {
         assert!(public_inputs.len() == Self::LEN);
+        let x: [T; 5] = public_inputs[2..7].try_into().unwrap();
+        let u: [T; 5] = public_inputs[7..12].try_into().unwrap();
         PublicInputs {
             nat_code: public_inputs[0],
             cutoff18_days: public_inputs[1],
+            issuer_pk: Point { x, u },
         }
     }
 }
@@ -65,6 +73,7 @@ impl<F: RichField> PublicInputs<F> {
         Self {
             cutoff18_days: F::from_canonical_u32(cutoff18_from_today_for_tests()),
             nat_code: F::from_canonical_u16(Nationality::FR.code()),
+            issuer_pk: Point::from_point(&issuer::keys::public().0),
         }
     }
     // TODO: distinguish error from proof verification & public input checks
