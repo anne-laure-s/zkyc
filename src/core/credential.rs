@@ -7,7 +7,7 @@ use rand::Rng;
 use crate::{
     circuit,
     core::{
-        conversion::{ToField, ToPointField, ToSingleField},
+        conversion::{ToField, ToPointField, ToSingleField, ToVecField},
         date::{
             days_from_origin, generate_birth_date, generate_birth_date_minor,
             generate_expiration_date,
@@ -99,35 +99,15 @@ impl<F: Field> ToField<F, 3> for PassportNumber {
 
 impl<F: Field> ToField<F, 3> for FrenchPassportNumber {
     fn to_field(&self) -> [F; 3] {
-        let fst = {
-            let bytes_32: [u8; 4] = self.0[..4].try_into().unwrap();
-            u32::from_le_bytes(bytes_32)
-        };
-        let snd = {
-            let bytes_32: [u8; 4] = self.0[4..8].try_into().unwrap();
-            u32::from_le_bytes(bytes_32)
-        };
-        let trd = self.0[8] as u32; // le conversion of the last byte
-        vec![fst.to_field(), snd.to_field(), trd.to_field()]
-            .try_into()
-            .unwrap()
+        self.0.as_slice().to_field(3).try_into().unwrap()
     }
 }
 
+// TODO: all lengths should be checked at construction
 /// for now, 20 chars max, encoded on u32 converted to field elements
 impl<F: Field> ToField<F, 5> for String {
     fn to_field(&self) -> [F; 5] {
-        let mut res = [F::ZERO; 5];
-        let mut buffer = [0; 4];
-        for (i, c) in self.chars().enumerate() {
-            let i_mod = i % 4;
-            buffer[i_mod] = c as u8;
-            if i_mod == 3 {
-                // FIXME: we expect this to fail if string is bigger than 5 field elements, but we should throw a proper error
-                res[i / 4] = u32::from_le_bytes(buffer).to_field()
-            }
-        }
-        res
+        self.as_bytes().to_field(5).try_into().unwrap()
     }
 }
 

@@ -31,3 +31,21 @@ impl<F: Field> ToSingleField<F> for u32 {
         F::from_canonical_u32(*self)
     }
 }
+
+impl<F: Field> ToVecField<F> for &[u8] {
+    fn to_field(&self, expected_len: usize) -> Vec<F> {
+        assert!(expected_len > 0);
+        let mut res = vec![F::ZERO; expected_len];
+        let mut count = 0;
+        for chunk in self.chunks(4) {
+            let mut buf = [0u8; 4];
+            buf[..chunk.len()].copy_from_slice(chunk);
+            res[count] = F::from_canonical_u32(u32::from_le_bytes(buf));
+            count += 1;
+            if count == expected_len {
+                return res;
+            }
+        }
+        res
+    }
+}
