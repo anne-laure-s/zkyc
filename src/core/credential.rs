@@ -5,13 +5,12 @@ use plonky2::field::types::Field;
 use rand::Rng;
 
 use crate::{
-    circuit,
-    core::{
+    core::date::{
+        days_from_origin, generate_birth_date, generate_birth_date_minor, generate_expiration_date,
+    },
+    encoding::{
+        self,
         conversion::{ToField, ToPointField, ToSingleField, ToVecField},
-        date::{
-            days_from_origin, generate_birth_date, generate_birth_date_minor,
-            generate_expiration_date,
-        },
     },
     issuer,
     schnorr::{
@@ -20,6 +19,7 @@ use crate::{
     },
 };
 
+#[derive(Clone)]
 pub struct Credential {
     first_name: Name,
     family_name: Name,
@@ -34,32 +34,33 @@ pub struct Credential {
 
 // ----
 
-#[derive(Debug)]
+#[derive(Debug, Clone)]
 struct Name(String);
 
-#[derive(Debug)]
+#[derive(Debug, Clone)]
 struct Place(String);
 
+#[derive(Debug, Clone)]
 struct Issuer(PublicKey);
 
-#[derive(Debug)]
+#[derive(Debug, Clone)]
 enum Gender {
     M,
     F,
 }
 
-#[derive(Debug)]
+#[derive(Debug, Clone)]
 pub enum Nationality {
     FR,
     // EN,
 }
 
-#[derive(Debug)]
+#[derive(Debug, Clone)]
 enum PassportNumber {
     French(FrenchPassportNumber),
 }
 
-#[derive(Debug)]
+#[derive(Debug, Clone)]
 struct FrenchPassportNumber([u8; 9]);
 
 impl<F: Field> ToSingleField<F> for Gender {
@@ -83,9 +84,10 @@ impl<F: Field> ToSingleField<F> for NaiveDate {
     }
 }
 
+// TODO: maybe this conversion is not necessary
 impl<F: Field> ToPointField<F> for Issuer {
-    fn to_field(&self) -> crate::circuit::Point<F> {
-        crate::circuit::Point::from_point(&self.0 .0)
+    fn to_field(&self) -> crate::encoding::Point<F> {
+        self.0 .0.to_field()
     }
 }
 
@@ -230,7 +232,7 @@ impl Credential {
     }
     pub fn random_minor(rng: &mut impl Rng) -> Self {
         fn generate_name(rng: &mut impl Rng) -> String {
-            let len = rng.random_range(3..20);
+            let len = rng.random_range(3..19);
             let mut res = String::with_capacity(len);
             res.push((b'A' + rng.random_range(0..26)) as char);
             for _ in 1..len {
@@ -249,6 +251,10 @@ impl Credential {
             expiration_date: generate_expiration_date(rng),
             issuer: Issuer(issuer::keys::public()),
         }
+    }
+    pub fn switch_names_char(&mut self) {
+        let c = self.first_name.0.pop().unwrap();
+        self.family_name.0.insert(0, c);
     }
 
     // TODO: fn new, with relevant checks (especially that everything is ascii, and not too long; dates’ year non negative (will overflow otherwise))
@@ -286,15 +292,15 @@ impl Credential {
     }
 
     pub fn sign(&self, sk: &SecretKey, pk: &PublicKey) -> Signature {
-        Signature::sign(sk, &Context::new(pk, self.as_bytes()))
+        Signature::sign(sk, &Context::new(pk, self))
     }
 
     pub fn check(&self, pk: &PublicKey, signature: &Signature) -> bool {
-        signature.verify(&Context::new(pk, self.as_bytes()))
+        signature.verify(&Context::new(pk, self))
     }
 
-    pub fn to_field<F: Field>(&self) -> circuit::credential::Credential<F> {
-        circuit::credential::Credential {
+    pub fn to_field<F: Field>(&self) -> encoding::Credential<F> {
+        encoding::Credential {
             first_name: self.first_name.0.to_field(),
             family_name: self.family_name.0.to_field(),
             birth_date: self.birth_date.to_field(),

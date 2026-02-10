@@ -1,4 +1,3 @@
-pub mod credential;
 // Credential requirements: age > 18, nationality = FR
 
 use plonky2::field::extension::Extendable;
@@ -20,25 +19,13 @@ use plonky2::{
 use crate::core::credential::Nationality;
 use crate::core::date::cutoff18_from_today_for_tests;
 use crate::core::{credential::Credential, date::days_from_origin};
-use crate::{arith, issuer};
+use crate::encoding::conversion::ToPointField;
+use crate::encoding::Point;
+use crate::issuer;
 
 const D: usize = 2;
 type C = PoseidonGoldilocksConfig;
 type F = <C as GenericConfig<D>>::F;
-
-pub struct Point<T> {
-    pub x: [T; 5],
-    pub u: [T; 5],
-}
-
-impl<F: Field> Point<F> {
-    pub fn from_point(p: &arith::Point) -> Self {
-        let p_affine = p.to_affine();
-        let x: [F; 5] = p_affine.x.0.map(|x| F::from_canonical_u64(x.to_u64()));
-        let u: [F; 5] = p_affine.u.0.map(|x| F::from_canonical_u64(x.to_u64()));
-        Point { x, u }
-    }
-}
 
 pub struct PublicInputs<T> {
     pub cutoff18_days: T,
@@ -47,10 +34,17 @@ pub struct PublicInputs<T> {
 }
 
 impl<T: Copy> PublicInputs<T> {
-    pub const LEN: usize = 12;
+    pub const LEN: usize = 22;
     pub fn to_list(&self) -> Vec<T> {
         let mut res = vec![self.nat_code, self.cutoff18_days];
-        for &i in self.issuer_pk.x.iter().chain(self.issuer_pk.u.iter()) {
+        for &i in self
+            .issuer_pk
+            .x
+            .iter()
+            .chain(self.issuer_pk.z.iter())
+            .chain(self.issuer_pk.u.iter())
+            .chain(self.issuer_pk.t.iter())
+        {
             res.push(i)
         }
         res
@@ -59,11 +53,13 @@ impl<T: Copy> PublicInputs<T> {
     pub fn from_list(public_inputs: &[T]) -> Self {
         assert!(public_inputs.len() == Self::LEN);
         let x: [T; 5] = public_inputs[2..7].try_into().unwrap();
-        let u: [T; 5] = public_inputs[7..12].try_into().unwrap();
+        let z: [T; 5] = public_inputs[7..12].try_into().unwrap();
+        let u: [T; 5] = public_inputs[12..17].try_into().unwrap();
+        let t: [T; 5] = public_inputs[17..22].try_into().unwrap();
         PublicInputs {
             nat_code: public_inputs[0],
             cutoff18_days: public_inputs[1],
-            issuer_pk: Point { x, u },
+            issuer_pk: Point { x, z, u, t },
         }
     }
 }
@@ -73,7 +69,7 @@ impl<F: RichField> PublicInputs<F> {
         Self {
             cutoff18_days: F::from_canonical_u32(cutoff18_from_today_for_tests()),
             nat_code: F::from_canonical_u16(Nationality::FR.code()),
-            issuer_pk: Point::from_point(&issuer::keys::public().0),
+            issuer_pk: issuer::keys::public().0.to_field(),
         }
     }
     // TODO: distinguish error from proof verification & public input checks

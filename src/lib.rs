@@ -3,6 +3,7 @@ pub(crate) mod bank;
 pub(crate) mod circuit;
 pub(crate) mod client;
 pub(crate) mod core;
+pub(crate) mod encoding;
 pub(crate) mod issuer;
 pub(crate) mod schnorr;
 

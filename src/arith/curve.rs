@@ -16,10 +16,10 @@ pub struct Point {
     // Internally, we use the (x,u) fractional coordinates: for curve
     // point (x,y), we have (x,u) = (x,x/y) = (X/Z,U/T) (for the neutral
     // N, the u coordinate is 0).
-    X: GFp5,
-    Z: GFp5,
-    U: GFp5,
-    T: GFp5,
+    pub X: GFp5,
+    pub Z: GFp5,
+    pub U: GFp5,
+    pub T: GFp5,
 }
 
 impl Point {
