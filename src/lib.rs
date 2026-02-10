@@ -24,10 +24,10 @@ mod tests {
     #[test]
     fn it_works() {
         let mut rng = StdRng::from_os_rng();
-        let credential = Credential::random(&mut rng).as_bytes();
+        let credential = Credential::random(&mut rng);
         let sk = SecretKey::random(&mut rng);
         let pk = PublicKey::from(&sk);
-        let ctx = Context::new(&pk, credential);
+        let ctx = Context::new(&pk, &credential);
         let signature = Signature::sign(&sk, &ctx);
         let b = signature.verify(&ctx);
         assert!(b)
@@ -43,13 +43,13 @@ mod tests {
         verify(&circuit.circuit, proof, &public_inputs).unwrap()
     }
     // #[test]
-    // FIXME: error is thrown by an assert, so I don’t know how to catch it properly for now
+    // // FIXME: error is thrown by an assert, so I don’t know how to catch it properly for now
     // fn zk_proof_with_wrong_age() {
     //     let mut rng = StdRng::from_os_rng();
     //     let credential = Credential::random_minor(&mut rng);
-    //     let circuit = circuit_credential_requirements();
+    //     let circuit = circuit();
     //     let public_inputs = PublicInputs::new();
-    //     let proof = prove_credential_requirements(&circuit, &credential, &public_inputs).unwrap() ;
-    //     assert!(verify_credential_requirements(&circuit.circuit, proof, &public_inputs).is_err())
+    //     let proof = prove(&circuit, &credential, &public_inputs).unwrap() ;
+    //     assert!(verify(&circuit.circuit, proof, &public_inputs).is_err())
     // }
 }

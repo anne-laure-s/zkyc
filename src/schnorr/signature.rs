@@ -1,23 +1,29 @@
+use plonky2::field::goldilocks_field::GoldilocksField;
+
+use crate::core::credential::Credential;
+use crate::encoding;
+
 use super::core::SchnorrProof;
 /// Signature will be used by the authority to sign the credential
 /// We expect the authority to sign a lot of messages with the same secret key
 use super::keys::{PublicKey, SecretKey};
 use super::transcript;
 
+type Message = [GoldilocksField; encoding::LEN_CREDENTIAL];
+
 pub struct Signature(SchnorrProof);
 pub struct Context {
     public_key: PublicKey,
-    message: Vec<u8>,
+    message: Message,
 }
 
 impl Context {
     /// Creates a new context. Creates a copy of public_key and takes ownership
     /// of message
-    pub fn new(public_key: &PublicKey, message: Vec<u8>) -> Self {
-        let public_key = PublicKey(public_key.0);
+    pub fn new(public_key: &PublicKey, credential: &Credential) -> Self {
         Self {
-            public_key,
-            message,
+            public_key: public_key.clone(),
+            message: credential.to_field().into(),
         }
     }
 
@@ -25,7 +31,7 @@ impl Context {
         &self.public_key
     }
 
-    pub fn message(&self) -> &[u8] {
+    pub fn message(&self) -> &Message {
         &self.message
     }
 
@@ -50,20 +56,24 @@ impl Signature {
 #[cfg(test)]
 mod tests {
     use super::{Context, Signature};
-    use crate::schnorr::keys::{PublicKey, SecretKey};
+    use crate::{
+        core::credential::Credential,
+        schnorr::keys::{PublicKey, SecretKey},
+    };
     use rand::{rngs::StdRng, SeedableRng};
 
-    fn keypair_from_seed(seed: u64) -> (SecretKey, PublicKey) {
+    fn keypair_and_credential_from_seed(seed: u64) -> (SecretKey, PublicKey, Credential) {
         let mut rng = StdRng::seed_from_u64(seed);
         let sk = SecretKey::random(&mut rng);
         let pk = PublicKey::from(&sk);
-        (sk, pk)
+        let credential = Credential::random(&mut rng);
+        (sk, pk, credential)
     }
 
     #[test]
     fn sign_then_verify_ok() {
-        let (sk, pk) = keypair_from_seed(1);
-        let ctx = Context::new(&pk, b"hello".to_vec());
+        let (sk, pk, credential) = keypair_and_credential_from_seed(1);
+        let ctx = Context::new(&pk, &credential);
 
         let sig = Signature::sign(&sk, &ctx);
         assert!(sig.verify(&ctx));
@@ -71,24 +81,28 @@ mod tests {
 
     #[test]
     fn verify_fails_if_message_changes() {
-        let (sk, pk) = keypair_from_seed(2);
+        let (sk, pk, credential) = keypair_and_credential_from_seed(2);
 
-        let ctx_good = Context::new(&pk, b"message A".to_vec());
+        let ctx_good = Context::new(&pk, &credential);
         let sig = Signature::sign(&sk, &ctx_good);
 
-        let ctx_bad = Context::new(&pk, b"message B".to_vec());
+        let (_sk, _pk, credential) = keypair_and_credential_from_seed(3);
+
+        let ctx_bad = Context::new(&pk, &credential);
         assert!(!sig.verify(&ctx_bad));
     }
 
     #[test]
     fn verify_fails_if_public_key_changes() {
-        let (sk1, pk1) = keypair_from_seed(3);
-        let (_sk2, pk2) = keypair_from_seed(4);
+        let (sk1, pk1, credential) = keypair_and_credential_from_seed(4);
+        let (_sk2, pk2, _credential) = keypair_and_credential_from_seed(5);
 
-        let ctx1 = Context::new(&pk1, b"same message".to_vec());
+        let ctx1 = Context::new(&pk1, &credential);
         let sig = Signature::sign(&sk1, &ctx1);
 
-        let ctx_other_pk = Context::new(&pk2, b"same message".to_vec());
+        let (_sk1, _pk1, credential) = keypair_and_credential_from_seed(4);
+
+        let ctx_other_pk = Context::new(&pk2, &credential);
         assert!(!sig.verify(&ctx_other_pk));
     }
 }

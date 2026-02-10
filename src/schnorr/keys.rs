@@ -1,8 +1,16 @@
-use crate::arith::{Point, Scalar};
+use crate::{
+    arith::{Point, Scalar},
+    encoding,
+};
+use plonky2::field::goldilocks_field::GoldilocksField;
 use rand::{rand_core, Rng};
 
 pub struct SecretKey(pub(crate) Scalar);
+
+#[derive(Debug, Clone)]
 pub struct PublicKey(pub(crate) Point);
+
+// pub(crate) struct InternalPublicKey(pub(crate) encoding::Point<GoldilocksField>);
 
 impl SecretKey {
     /// Generates a random non-null scalar field element from secure rng
@@ -20,6 +28,12 @@ impl PublicKey {
         Self(Point::mulgen(sk.0))
     }
 }
+
+// impl From<&PublicKey> for InternalPublicKey {
+//     fn from(value: &PublicKey) -> Self {
+//         Self((&value.0).into())
+//     }
+// }
 #[cfg(test)]
 mod tests {
     use super::*;

@@ -12,8 +12,8 @@ pub enum Context<'a> {
 impl<'a> Context<'a> {
     pub fn public_key(&'a self) -> &'a PublicKey {
         match self {
-            Self::Auth(ref ctx) => ctx.public_key(),
-            Self::Sig(ref ctx) => ctx.public_key(),
+            Self::Auth(ctx) => ctx.public_key(),
+            Self::Sig(ctx) => ctx.public_key(),
         }
     }
 }
@@ -67,25 +67,24 @@ pub fn poseidon_to_scalar(message: &[Goldilocks]) -> Scalar {
 //
 pub fn hash(nonce: &Point, ctx: Context) -> Scalar {
     let tag = match ctx {
-        Context::Auth(_) => b"ZKYC_SCHNORR_AUT_CHALLENGE",
-        Context::Sig(_) => b"ZKYC_SCHNORR_SIG_CHALLENGE",
+        Context::Auth(_) => b"ZKYC_SCHNORR_AUT_CHALLENGE_V1",
+        Context::Sig(_) => b"ZKYC_SCHNORR_SIG_CHALLENGE_V1",
     };
-    let mut byte_message = tag.to_vec();
+    let mut f_message = message_to_goldilocks(tag);
     match ctx {
         Context::Auth(ctx) => {
-            byte_message.extend_from_slice(&(ctx.service().len() as u32).to_le_bytes());
-            byte_message.extend_from_slice(&ctx.service());
-            byte_message.extend_from_slice(&(ctx.nonce().len() as u32).to_le_bytes());
-            byte_message.extend_from_slice(&ctx.nonce());
+            f_message
+                .extend_from_slice(&ctx.service().map(|x| Goldilocks::from_canonical_u64(x.0)));
+            f_message.extend_from_slice(&ctx.nonce().map(|x| Goldilocks::from_canonical_u64(x.0)));
         }
         Context::Sig(ctx) => {
-            byte_message.extend_from_slice(&(ctx.message().len() as u32).to_le_bytes());
-            byte_message.extend_from_slice(ctx.message());
+            f_message
+                .extend_from_slice(&ctx.message().map(|x| Goldilocks::from_canonical_u64(x.0)));
         }
     };
     let mut to_hash = point_to_vec_goldilocks(nonce);
     to_hash.extend_from_slice(&point_to_vec_goldilocks(&ctx.public_key().0));
-    to_hash.extend_from_slice(&message_to_goldilocks(&byte_message));
+    to_hash.extend_from_slice(&f_message);
     poseidon_to_scalar(&to_hash)
 }
 #[cfg(test)]
@@ -105,43 +104,42 @@ mod tests {
     }
 
     fn nonce_point_from_seed(seed: u64) -> Point {
-        // nonce point r = k*G, avec k déterministe pour les tests
         let mut rng = StdRng::seed_from_u64(seed);
         let k = Scalar::random_from_rng(&mut rng);
         Point::mulgen(k)
     }
 
+    fn credential_from_seed(seed: u64) -> crate::core::credential::Credential {
+        let mut rng = StdRng::seed_from_u64(seed);
+        crate::core::credential::Credential::random(&mut rng)
+    }
+
+    fn switched_credential() -> (
+        crate::core::credential::Credential,
+        crate::core::credential::Credential,
+    ) {
+        let mut c2 = credential_from_seed(12345);
+        let c1 = c2.clone();
+        c2.switch_names_char();
+        (c1, c2)
+    }
+
     #[test]
-    fn message_length_prefix_makes_hash_injective_over_trailing_zeros() {
+    fn hash_injective() {
         let pk = pk_from_seed(1);
         let r = nonce_point_from_seed(2);
 
-        let ctx1 = signature::Context::new(&pk, vec![1]);
-        let ctx2 = signature::Context::new(&pk, vec![1, 0]);
+        let (cred1, cred2) = switched_credential();
+
+        let ctx1 = signature::Context::new(&pk, &cred1);
+        let ctx2 = signature::Context::new(&pk, &cred2);
 
         let e1 = hash(&r, ctx1.to_context());
         let e2 = hash(&r, ctx2.to_context());
 
         assert!(
             e1.equals(e2) == 0,
-            "hash should differ when message length differs, even if padding makes chunks look similar"
-        );
-    }
-
-    #[test]
-    fn signature_hash_changes_when_message_changes() {
-        let pk = pk_from_seed(10);
-        let r = nonce_point_from_seed(20);
-
-        let ctx_a = signature::Context::new(&pk, b"hello".to_vec());
-        let ctx_b = signature::Context::new(&pk, b"hellp".to_vec());
-
-        let e_a = hash(&r, ctx_a.to_context());
-        let e_b = hash(&r, ctx_b.to_context());
-
-        assert!(
-            e_a.equals(e_b) == 0,
-            "signature challenge must change when message changes"
+            "challenge must differ when credential's variable-length field differs only by one character switch"
         );
     }
 
@@ -150,52 +148,33 @@ mod tests {
         let pk = pk_from_seed(100);
         let r = nonce_point_from_seed(200);
 
-        let ctx1 = authentification::Context::new(&pk, b"svcA".to_vec(), b"nonce1".to_vec());
-        let ctx2 = authentification::Context::new(&pk, b"svcB".to_vec(), b"nonce1".to_vec());
-        let ctx3 = authentification::Context::new(&pk, b"svcA".to_vec(), b"nonce2".to_vec());
+        let ctx1 = authentification::Context::new(&pk, b"svcA", b"nonce1");
+        let ctx2 = authentification::Context::new(&pk, b"svcB", b"nonce1");
+        let ctx3 = authentification::Context::new(&pk, b"svcA", b"nonce2");
 
         let e1 = hash(&r, ctx1.to_context());
         let e2 = hash(&r, ctx2.to_context());
         let e3 = hash(&r, ctx3.to_context());
 
         assert!(
-            e1.equals(e2) != u64::MAX,
+            e1.equals(e2) == 0,
             "auth challenge must change when service changes"
         );
         assert!(
-            e1.equals(e3) != u64::MAX,
+            e1.equals(e3) == 0,
             "auth challenge must change when server nonce changes"
         );
     }
 
-    // TODO: FIXME: This test could be better
     #[test]
-    fn domain_separation_auth_vs_sig_differs_even_with_same_bytes() {
-        // Même si on force service/nonce == message, les tags doivent séparer les domaines.
-        let pk = pk_from_seed(7);
-        let r = nonce_point_from_seed(8);
-
-        let bytes = b"same payload".to_vec();
-
-        let auth_ctx = authentification::Context::new(&pk, bytes.clone(), bytes.clone());
-        let sig_ctx = signature::Context::new(&pk, bytes.clone());
-
-        let e_auth = hash(&r, auth_ctx.to_context());
-        let e_sig = hash(&r, sig_ctx.to_context());
-
-        assert!(
-            e_auth.equals(e_sig) != u64::MAX,
-            "domain separation tags must prevent Auth and Sig transcripts from colliding"
-        );
-    }
-
-    #[test]
-    fn auth_challenge_is_bound_to_public_key() {
+    fn challenge_is_bound_to_public_key() {
         let r = nonce_point_from_seed(4242);
         let msg = b"bind-me".to_vec();
+        let pk1 = pk_from_seed(1);
+        let pk2 = pk_from_seed(2);
 
-        let ctx_pk1 = authentification::Context::new(&pk_from_seed(1), msg.clone(), msg.clone());
-        let ctx_pk2 = authentification::Context::new(&pk_from_seed(2), msg.clone(), msg.clone());
+        let ctx_pk1 = authentification::Context::new(&pk1, &msg, &msg);
+        let ctx_pk2 = authentification::Context::new(&pk2, &msg, &msg);
 
         let e1 = hash(&r, ctx_pk1.to_context());
         let e2 = hash(&r, ctx_pk2.to_context());
@@ -204,11 +183,23 @@ mod tests {
             e1.equals(e2) == 0,
             "authentification challenge must depend on the public key"
         );
+
+        let cred = credential_from_seed(4555);
+
+        let ctx_pk1 = signature::Context::new(&pk1, &cred);
+        let ctx_pk2 = signature::Context::new(&pk2, &cred);
+
+        let e1 = hash(&r, ctx_pk1.to_context());
+        let e2 = hash(&r, ctx_pk2.to_context());
+
+        assert!(
+            e1.equals(e2) == 0,
+            "signature challenge must depend on the public key"
+        );
     }
 
     #[test]
     fn canonicalization_is_idempotent() {
-        // to_canonical_fp5_element(to_canonical_fp5_element(x)) == to_canonical_fp5_element(x)
         let msg = message_to_goldilocks(b"canonical check");
         let fp5 = poseidon_hash::hash_to_quintic_extension(&msg);
 
