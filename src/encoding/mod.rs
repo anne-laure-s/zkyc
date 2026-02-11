@@ -7,11 +7,12 @@ pub mod conversion;
 pub const LEN_STRING: usize = 5;
 pub const LEN_PASSPORT_NUMBER: usize = 3;
 pub const LEN_EXTENSION_FIELD: usize = 5;
+pub const LEN_POINT: usize = 4 * LEN_EXTENSION_FIELD;
 
 /// size of a credential<T> in number of T elements
-pub const LEN_CREDENTIAL: usize =
-    3 * LEN_STRING + LEN_PASSPORT_NUMBER + 4 + 4 * LEN_EXTENSION_FIELD;
+pub const LEN_CREDENTIAL: usize = 3 * LEN_STRING + LEN_PASSPORT_NUMBER + 4 + LEN_POINT;
 
+pub const LEN_SIGNATURE: usize = LEN_POINT + 1;
 /// Representation of a credential inside a circuit
 #[derive(Clone)]
 pub struct Credential<T> {
@@ -36,22 +37,8 @@ pub struct Point<T> {
     pub t: [T; LEN_EXTENSION_FIELD],
 }
 
-impl<T> From<Credential<T>> for [T; LEN_CREDENTIAL] {
-    fn from(value: Credential<T>) -> Self {
-        let mut res = Vec::with_capacity(LEN_CREDENTIAL);
-        res.extend(value.first_name);
-        res.extend(value.family_name);
-        res.extend(value.place_of_birth);
-        res.extend(value.passport_number);
-        res.push(value.birth_date);
-        res.push(value.expiration_date);
-        res.push(value.gender);
-        res.push(value.nationality);
-        res.extend(value.issuer.x);
-        res.extend(value.issuer.z);
-        res.extend(value.issuer.u);
-        res.extend(value.issuer.t);
-        res.try_into()
-            .unwrap_or_else(|_| panic!("Given credential don't fit the right length"))
-    }
+#[derive(Clone)]
+pub struct Signature<T> {
+    r: Point<T>,
+    s: T,
 }

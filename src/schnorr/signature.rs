@@ -23,7 +23,7 @@ impl Context {
     pub fn new(public_key: &PublicKey, credential: &Credential) -> Self {
         Self {
             public_key: public_key.clone(),
-            message: credential.to_field().into(),
+            message: (&credential.to_field()).into(),
         }
     }
 

@@ -1,9 +1,15 @@
 use plonky2::{field::types::Field, hash::hash_types::RichField};
 
 use super::Point;
-use crate::arith::{
-    self,
-    field::{GFp, GFp5},
+use crate::{
+    arith::{
+        self,
+        field::{GFp, GFp5},
+    },
+    encoding::{
+        Credential, Signature, LEN_CREDENTIAL, LEN_EXTENSION_FIELD, LEN_PASSPORT_NUMBER, LEN_POINT,
+        LEN_SIGNATURE, LEN_STRING,
+    },
 };
 
 pub trait ToField<F: Field, const N: usize> {
@@ -79,6 +85,91 @@ impl<F: RichField> From<&Point<F>> for arith::Point {
             Z: GFp5(value.z.map(|x| GFp::from_u64_reduce(x.to_canonical_u64()))),
             U: GFp5(value.u.map(|x| GFp::from_u64_reduce(x.to_canonical_u64()))),
             T: GFp5(value.t.map(|x| GFp::from_u64_reduce(x.to_canonical_u64()))),
+        }
+    }
+}
+
+impl<T: Copy> From<&[T; LEN_POINT]> for Point<T> {
+    fn from(value: &[T; LEN_POINT]) -> Self {
+        Self {
+            x: value[..LEN_EXTENSION_FIELD].try_into().unwrap(),
+            z: value[LEN_EXTENSION_FIELD..LEN_EXTENSION_FIELD * 2]
+                .try_into()
+                .unwrap(),
+            u: value[LEN_EXTENSION_FIELD * 2..LEN_EXTENSION_FIELD * 3]
+                .try_into()
+                .unwrap(),
+            t: value[LEN_EXTENSION_FIELD * 3..].try_into().unwrap(),
+        }
+    }
+}
+
+impl<T: Copy> From<&Point<T>> for [T; LEN_POINT] {
+    fn from(value: &Point<T>) -> Self {
+        let mut res = Vec::with_capacity(LEN_POINT);
+        res.extend(value.x);
+        res.extend(value.z);
+        res.extend(value.u);
+        res.extend(value.t);
+        res.try_into()
+            .unwrap_or_else(|_| panic!("Given signature don't fit the right length"))
+    }
+}
+
+impl<T: Copy> From<&Signature<T>> for [T; LEN_SIGNATURE] {
+    fn from(value: &Signature<T>) -> Self {
+        let mut res = Vec::with_capacity(LEN_SIGNATURE);
+        let r: [T; LEN_POINT] = (&value.r).into();
+        res.extend(r);
+        res.push(value.s);
+        res.try_into()
+            .unwrap_or_else(|_| panic!("Given signature don't fit the right length"))
+    }
+}
+
+impl<T: Copy> From<&[T; LEN_SIGNATURE]> for Signature<T> {
+    fn from(value: &[T; LEN_SIGNATURE]) -> Self {
+        let r: &[T; LEN_POINT] = &value[..LEN_POINT].try_into().unwrap();
+        let s: T = value[LEN_POINT];
+        Self { r: r.into(), s }
+    }
+}
+
+impl<T: Copy> From<&Credential<T>> for [T; LEN_CREDENTIAL] {
+    fn from(value: &Credential<T>) -> Self {
+        let mut res = Vec::with_capacity(LEN_CREDENTIAL);
+        res.extend(value.first_name);
+        res.extend(value.family_name);
+        res.extend(value.place_of_birth);
+        res.extend(value.passport_number);
+        res.push(value.birth_date);
+        res.push(value.expiration_date);
+        res.push(value.gender);
+        res.push(value.nationality);
+        let point: [T; LEN_POINT] = (&value.issuer).into();
+        res.extend(point);
+        res.try_into()
+            .unwrap_or_else(|_| panic!("Given credential don't fit the right length"))
+    }
+}
+
+const POS_BIRTH_DATE: usize = LEN_STRING * 3 + LEN_PASSPORT_NUMBER;
+const START_ISSUER: usize = POS_BIRTH_DATE + 4;
+impl<T: Copy> From<&[T; LEN_CREDENTIAL]> for Credential<T> {
+    fn from(value: &[T; LEN_CREDENTIAL]) -> Self {
+        let issuer: &[T; LEN_POINT] = &value[START_ISSUER..].try_into().unwrap();
+        Self {
+            first_name: value[0..LEN_STRING].try_into().unwrap(),
+            family_name: value[LEN_STRING..LEN_STRING * 2].try_into().unwrap(),
+            place_of_birth: value[LEN_STRING * 2..LEN_STRING * 3].try_into().unwrap(),
+            passport_number: value[LEN_STRING * 3..LEN_STRING * 3 + LEN_PASSPORT_NUMBER]
+                .try_into()
+                .unwrap(),
+            birth_date: value[POS_BIRTH_DATE],
+            expiration_date: value[POS_BIRTH_DATE + 1],
+            gender: value[POS_BIRTH_DATE + 2],
+            nationality: value[POS_BIRTH_DATE + 3],
+            issuer: issuer.into(),
         }
     }
 }
