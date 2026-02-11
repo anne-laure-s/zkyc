@@ -4,19 +4,24 @@
 
 pub mod conversion;
 
+pub const LEN_STRING: usize = 5;
+pub const LEN_PASSPORT_NUMBER: usize = 3;
+pub const LEN_EXTENSION_FIELD: usize = 5;
+
 /// size of a credential<T> in number of T elements
-pub const LEN_CREDENTIAL: usize = 42;
+pub const LEN_CREDENTIAL: usize =
+    3 * LEN_STRING + LEN_PASSPORT_NUMBER + 4 + 4 * LEN_EXTENSION_FIELD;
 
 /// Representation of a credential inside a circuit
 #[derive(Clone)]
 pub struct Credential<T> {
-    pub first_name: [T; 5],
-    pub family_name: [T; 5],
+    pub first_name: [T; LEN_STRING],
+    pub family_name: [T; LEN_STRING],
     pub birth_date: T, // number of days since origin
-    pub place_of_birth: [T; 5],
+    pub place_of_birth: [T; LEN_STRING],
     pub gender: T,
     pub nationality: T,
-    pub passport_number: [T; 3], // assumed to be french (9 u8)
+    pub passport_number: [T; LEN_PASSPORT_NUMBER], // assumed to be french (9 u8)
     pub expiration_date: T,
     pub issuer: Point<T>,
 }
@@ -25,10 +30,10 @@ pub struct Credential<T> {
 
 #[derive(Clone)]
 pub struct Point<T> {
-    pub x: [T; 5],
-    pub z: [T; 5],
-    pub u: [T; 5],
-    pub t: [T; 5],
+    pub x: [T; LEN_EXTENSION_FIELD],
+    pub z: [T; LEN_EXTENSION_FIELD],
+    pub u: [T; LEN_EXTENSION_FIELD],
+    pub t: [T; LEN_EXTENSION_FIELD],
 }
 
 impl<T> From<Credential<T>> for [T; LEN_CREDENTIAL] {

@@ -1,6 +1,7 @@
 use plonky2::field::goldilocks_field::GoldilocksField;
 
 use crate::encoding::conversion::ToVecField;
+use crate::encoding::LEN_STRING;
 
 use super::core::SchnorrProof;
 /// Authentification will be used by the user to prove that they knows the secret key tied to some public key
@@ -12,9 +13,9 @@ pub struct Context {
     public_key: PublicKey,
     // TODO: ensure everything is ascii ?
     // server service
-    service: [GoldilocksField; 5],
+    service: [GoldilocksField; LEN_STRING],
     // nonce from server, unique per session
-    nonce: [GoldilocksField; 5],
+    nonce: [GoldilocksField; LEN_STRING],
     // TODO: session_id, channel_id
 }
 
@@ -24,8 +25,8 @@ impl Context {
     pub fn new(public_key: &PublicKey, service: &[u8], nonce: &[u8]) -> Self {
         Self {
             public_key: public_key.clone(),
-            service: service.to_field(5).try_into().unwrap(),
-            nonce: nonce.to_field(5).try_into().unwrap(),
+            service: service.to_field(LEN_STRING).try_into().unwrap(),
+            nonce: nonce.to_field(LEN_STRING).try_into().unwrap(),
         }
     }
 
@@ -33,11 +34,11 @@ impl Context {
         &self.public_key
     }
 
-    pub fn service(&self) -> &[GoldilocksField; 5] {
+    pub fn service(&self) -> &[GoldilocksField; LEN_STRING] {
         &self.service
     }
 
-    pub fn nonce(&self) -> &[GoldilocksField; 5] {
+    pub fn nonce(&self) -> &[GoldilocksField; LEN_STRING] {
         &self.nonce
     }
 

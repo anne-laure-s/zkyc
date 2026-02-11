@@ -11,6 +11,7 @@ use crate::{
     encoding::{
         self,
         conversion::{ToField, ToPointField, ToSingleField, ToVecField},
+        LEN_PASSPORT_NUMBER, LEN_STRING,
     },
     issuer,
     schnorr::{
@@ -91,25 +92,29 @@ impl<F: Field> ToPointField<F> for Issuer {
     }
 }
 
-impl<F: Field> ToField<F, 3> for PassportNumber {
-    fn to_field(&self) -> [F; 3] {
+impl<F: Field> ToField<F, LEN_PASSPORT_NUMBER> for PassportNumber {
+    fn to_field(&self) -> [F; LEN_PASSPORT_NUMBER] {
         match self {
             Self::French(n) => n.to_field(),
         }
     }
 }
 
-impl<F: Field> ToField<F, 3> for FrenchPassportNumber {
-    fn to_field(&self) -> [F; 3] {
-        self.0.as_slice().to_field(3).try_into().unwrap()
+impl<F: Field> ToField<F, LEN_PASSPORT_NUMBER> for FrenchPassportNumber {
+    fn to_field(&self) -> [F; LEN_PASSPORT_NUMBER] {
+        self.0
+            .as_slice()
+            .to_field(LEN_PASSPORT_NUMBER)
+            .try_into()
+            .unwrap()
     }
 }
 
 // TODO: all lengths should be checked at construction
 /// for now, 20 chars max, encoded on u32 converted to field elements
-impl<F: Field> ToField<F, 5> for String {
-    fn to_field(&self) -> [F; 5] {
-        self.as_bytes().to_field(5).try_into().unwrap()
+impl<F: Field> ToField<F, LEN_STRING> for String {
+    fn to_field(&self) -> [F; LEN_STRING] {
+        self.as_bytes().to_field(LEN_STRING).try_into().unwrap()
     }
 }
 
