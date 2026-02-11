@@ -11,7 +11,7 @@ use super::transcript;
 
 type Message = [GoldilocksField; encoding::LEN_CREDENTIAL];
 
-pub struct Signature(SchnorrProof);
+pub struct Signature(pub(crate) SchnorrProof);
 pub struct Context {
     public_key: PublicKey,
     message: Message,

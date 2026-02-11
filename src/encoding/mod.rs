@@ -2,17 +2,19 @@
 
 // TODO: add tests for lengths
 
+use crate::arith;
+
 pub mod conversion;
 
 pub const LEN_STRING: usize = 5;
 pub const LEN_PASSPORT_NUMBER: usize = 3;
-pub const LEN_EXTENSION_FIELD: usize = 5;
-pub const LEN_POINT: usize = 4 * LEN_EXTENSION_FIELD;
+pub const LEN_FIELD: usize = 5;
+pub const LEN_POINT: usize = 4 * LEN_FIELD;
+pub const LEN_SCALAR: usize = arith::Scalar::NB_BITS;
 
 /// size of a credential<T> in number of T elements
 pub const LEN_CREDENTIAL: usize = 3 * LEN_STRING + LEN_PASSPORT_NUMBER + 4 + LEN_POINT;
 
-pub const LEN_SIGNATURE: usize = LEN_POINT + 1;
 /// Representation of a credential inside a circuit
 #[derive(Clone)]
 pub struct Credential<T> {
@@ -31,14 +33,17 @@ pub struct Credential<T> {
 
 #[derive(Clone)]
 pub struct Point<T> {
-    pub x: [T; LEN_EXTENSION_FIELD],
-    pub z: [T; LEN_EXTENSION_FIELD],
-    pub u: [T; LEN_EXTENSION_FIELD],
-    pub t: [T; LEN_EXTENSION_FIELD],
+    pub x: [T; LEN_FIELD],
+    pub z: [T; LEN_FIELD],
+    pub u: [T; LEN_FIELD],
+    pub t: [T; LEN_FIELD],
 }
 
 #[derive(Clone)]
-pub struct Signature<T> {
-    r: Point<T>,
-    s: T,
+pub struct Scalar<T>(pub(crate) [T; LEN_SCALAR]);
+
+#[derive(Clone)]
+pub struct Signature<T, TBool> {
+    pub(crate) r: Point<T>,
+    pub(crate) s: Scalar<TBool>,
 }

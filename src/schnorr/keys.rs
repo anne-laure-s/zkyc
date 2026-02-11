@@ -1,8 +1,4 @@
-use crate::{
-    arith::{Point, Scalar},
-    encoding,
-};
-use plonky2::field::goldilocks_field::GoldilocksField;
+use crate::arith::{Point, Scalar};
 use rand::{rand_core, Rng};
 
 pub struct SecretKey(pub(crate) Scalar);

@@ -6,7 +6,7 @@ use crate::arith::field::GFp5;
 
 /// A scalar (integer modulo the prime group order n).
 #[derive(Clone, Copy, Debug)]
-pub struct Scalar([u64; 5]);
+pub struct Scalar(pub(crate) [u64; 5]);
 
 impl Scalar {
     // IMPLEMENTATION NOTES:
@@ -23,16 +23,19 @@ impl Scalar {
 
     pub const ONE: Self = Self([1, 0, 0, 0, 0]);
 
-    // The modulus itself, stored in a Scalar structure (which
-    // contravenes to the rules of a Scalar; this constant MUST NOT leak
-    // outside the API).
-    const N: Self = Self([
+    /// Modulus represented as u64 limbs in little endian
+    pub const MODULUS: [u64; 5] = [
         0xE80FD996948BFFE1,
         0xE8885C39D724A09C,
         0x7FFFFFE6CFB80639,
         0x7FFFFFF100000016,
         0x7FFFFFFD80000007,
-    ]);
+    ];
+
+    // The modulus itself, stored in a Scalar structure (which
+    // contravenes to the rules of a Scalar; this constant MUST NOT leak
+    // outside the API).
+    const N: Self = Self(Self::MODULUS);
 
     // -1/N[0] mod 2^64
     const N0I: u64 = 0xD78BEF72057B7BDF;
@@ -430,6 +433,40 @@ impl Scalar {
             | (self.0[3] ^ rhs.0[3])
             | (self.0[4] ^ rhs.0[4]);
         ((x | x.wrapping_neg()) >> 63).wrapping_sub(1)
+    }
+
+    pub const NB_BITS: usize = 319;
+
+    const fn bit_le(&self, i: usize) -> bool {
+        let limb = i >> 6; // /64
+        let off = i & 63; // %64
+        ((self.0[limb] >> off) & 1) != 0
+    }
+
+    pub const fn modulus_bit_le(i: usize) -> bool {
+        Self::N.bit_le(i)
+    }
+    /// Convert Scalar limbs -> little-endian bits.
+    /// bits[0] is the least-significant bit of limbs[0].
+    pub fn to_bits_le(&self) -> [bool; Self::NB_BITS] {
+        let mut bits = [false; Self::NB_BITS];
+        for i in 0..Self::NB_BITS {
+            bits[i] = self.bit_le(i);
+        }
+        bits
+    }
+    /// Convert little-endian bits -> Scalar limbs (little-endian).
+    /// Extra bits beyond 5*64 are ignored (or you can assert they are 0).
+    pub fn from_bits_le(bits: &[bool; Self::NB_BITS]) -> Self {
+        let mut limbs = [0u64; 5];
+        for i in 0..Self::NB_BITS {
+            if bits[i] {
+                let limb = i >> 6;
+                let off = i & 63;
+                limbs[limb] |= 1u64 << off;
+            }
+        }
+        Self(limbs)
     }
 }
 

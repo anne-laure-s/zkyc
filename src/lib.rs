@@ -12,7 +12,7 @@ mod tests {
     use rand::rngs::StdRng;
     use rand::SeedableRng;
 
-    use crate::circuit::PublicInputs;
+    use crate::circuit::public_inputs::PublicInputs;
     use crate::circuit::{circuit, prove, verify};
     use crate::core::credential::Credential;
     use crate::schnorr::{

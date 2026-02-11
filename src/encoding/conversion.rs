@@ -7,8 +7,8 @@ use crate::{
         field::{GFp, GFp5},
     },
     encoding::{
-        Credential, Signature, LEN_CREDENTIAL, LEN_EXTENSION_FIELD, LEN_PASSPORT_NUMBER, LEN_POINT,
-        LEN_SIGNATURE, LEN_STRING,
+        Credential, Scalar, Signature, LEN_CREDENTIAL, LEN_FIELD, LEN_PASSPORT_NUMBER, LEN_POINT,
+        LEN_STRING,
     },
 };
 
@@ -20,8 +20,16 @@ pub trait ToSingleField<F: Field> {
     fn to_field(&self) -> F;
 }
 
+pub trait ToScalarField {
+    fn to_field(&self) -> Scalar<bool>;
+}
+
 pub trait ToPointField<F: Field> {
     fn to_field(&self) -> Point<F>;
+}
+
+pub trait ToSignatureField<F: Field, B: Copy> {
+    fn to_field(&self) -> Signature<F, B>;
 }
 
 pub trait ToVecField<F: Field> {
@@ -67,6 +75,15 @@ impl<F: Field> ToVecField<F> for &[u8] {
     }
 }
 
+// maybe this name is not appropriate
+impl ToScalarField for arith::Scalar {
+    fn to_field(&self) -> Scalar<bool> {
+        Scalar(self.to_bits_le())
+    }
+}
+
+//TODO: NEXT: comment on implémente les scalaires dans le circuit ?
+
 impl<F: Field> ToPointField<F> for arith::Point {
     fn to_field(&self) -> Point<F> {
         Point {
@@ -92,14 +109,10 @@ impl<F: RichField> From<&Point<F>> for arith::Point {
 impl<T: Copy> From<&[T; LEN_POINT]> for Point<T> {
     fn from(value: &[T; LEN_POINT]) -> Self {
         Self {
-            x: value[..LEN_EXTENSION_FIELD].try_into().unwrap(),
-            z: value[LEN_EXTENSION_FIELD..LEN_EXTENSION_FIELD * 2]
-                .try_into()
-                .unwrap(),
-            u: value[LEN_EXTENSION_FIELD * 2..LEN_EXTENSION_FIELD * 3]
-                .try_into()
-                .unwrap(),
-            t: value[LEN_EXTENSION_FIELD * 3..].try_into().unwrap(),
+            x: value[..LEN_FIELD].try_into().unwrap(),
+            z: value[LEN_FIELD..LEN_FIELD * 2].try_into().unwrap(),
+            u: value[LEN_FIELD * 2..LEN_FIELD * 3].try_into().unwrap(),
+            t: value[LEN_FIELD * 3..].try_into().unwrap(),
         }
     }
 }
@@ -112,28 +125,27 @@ impl<T: Copy> From<&Point<T>> for [T; LEN_POINT] {
         res.extend(value.u);
         res.extend(value.t);
         res.try_into()
-            .unwrap_or_else(|_| panic!("Given signature don't fit the right length"))
+            .unwrap_or_else(|_| panic!("Given point don't fit the right length"))
     }
 }
 
-impl<T: Copy> From<&Signature<T>> for [T; LEN_SIGNATURE] {
-    fn from(value: &Signature<T>) -> Self {
-        let mut res = Vec::with_capacity(LEN_SIGNATURE);
-        let r: [T; LEN_POINT] = (&value.r).into();
-        res.extend(r);
-        res.push(value.s);
-        res.try_into()
-            .unwrap_or_else(|_| panic!("Given signature don't fit the right length"))
-    }
-}
+// impl<T: Copy, TBool: Copy> From<&Signature<T, TBool>> for [T; LEN_SIGNATURE] {
+//     fn from(value: &Signature<T, TBool>) -> Self {
+//         let mut res = Vec::with_capacity(LEN_SIGNATURE);
+//         let r: [T; LEN_POINT] = (&value.r).into();
+//         let s: [TBool; LEN_SCALAR] = value.s.0;
+//         res.extend(r);
+//         res.extend(s);
+//         res.try_into()
+//             .unwrap_or_else(|_| panic!("Given signature don't fit the right length"))
+//     }
+// }
 
-impl<T: Copy> From<&[T; LEN_SIGNATURE]> for Signature<T> {
-    fn from(value: &[T; LEN_SIGNATURE]) -> Self {
-        let r: &[T; LEN_POINT] = &value[..LEN_POINT].try_into().unwrap();
-        let s: T = value[LEN_POINT];
-        Self { r: r.into(), s }
-    }
-}
+// impl<T: Copy, TBool: Copy> From<&([T; LEN_POINT], [TBool, LEN_SCALAR])> for Signature<T, TBool> {
+//     fn from(value: &([T; LEN_POINT], [TBool, LEN_SCALAR])) -> Self {
+//         Self { r: value.0.into(), s: value.1.into() }
+//     }
+// }
 
 impl<T: Copy> From<&Credential<T>> for [T; LEN_CREDENTIAL] {
     fn from(value: &Credential<T>) -> Self {

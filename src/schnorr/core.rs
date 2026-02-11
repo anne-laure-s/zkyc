@@ -1,8 +1,14 @@
 // Unifies signature and authentification code.
 // The difference between these two protocol is what is hashed for fiat shamir
 
+use plonky2::hash::hash_types::RichField;
+
 use crate::{
     arith::{Point, Scalar},
+    encoding::{
+        conversion::{ToPointField, ToSignatureField},
+        Signature,
+    },
     schnorr::{
         keys::SecretKey,
         transcript::{hash, Context},
@@ -35,5 +41,14 @@ impl SchnorrProof {
         let gs = Point::mulgen(self.s);
         let gr = self.r + (pk * e);
         gs.equals(gr) == u64::MAX
+    }
+}
+
+impl<F: RichField> ToSignatureField<F> for SchnorrProof {
+    fn to_field(&self) -> Signature<F> {
+        Signature {
+            r: self.r.to_field(),
+            s: self.s.to_field(),
+        }
     }
 }
