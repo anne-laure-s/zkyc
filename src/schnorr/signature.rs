@@ -1,7 +1,9 @@
 use plonky2::field::goldilocks_field::GoldilocksField;
+use plonky2::hash::hash_types::RichField;
 
 use crate::core::credential::Credential;
 use crate::encoding;
+use crate::encoding::conversion::ToSignatureField;
 
 use super::core::SchnorrProof;
 /// Signature will be used by the authority to sign the credential
@@ -53,6 +55,13 @@ impl Signature {
         self.0.verify(ctx.to_context())
     }
 }
+
+impl<F: RichField> ToSignatureField<F, bool> for Signature {
+    fn to_field(&self) -> crate::encoding::Signature<F, bool> {
+        self.0.to_field()
+    }
+}
+
 #[cfg(test)]
 mod tests {
     use super::{Context, Signature};

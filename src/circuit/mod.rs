@@ -1,7 +1,6 @@
 // Credential requirements: age > 18, nationality = FR
 
-use plonky2::field::extension::Extendable;
-use plonky2::hash::hash_types::RichField;
+use plonky2::iop::target::BoolTarget;
 use plonky2::{
     iop::{target::Target, witness::PartialWitness},
     plonk::{
@@ -15,7 +14,6 @@ use plonky2::{
 use crate::circuit::private_inputs::PrivateInputs;
 use crate::circuit::public_inputs::PublicInputs;
 use crate::core::credential::Credential;
-use crate::encoding::LEN_CREDENTIAL;
 use crate::schnorr::signature::Signature;
 
 pub(crate) mod curve;
@@ -28,14 +26,8 @@ const D: usize = 2;
 type C = PoseidonGoldilocksConfig;
 type F = <C as GenericConfig<D>>::F;
 
-pub(crate) trait Input<F: RichField + Extendable<D>, const D: usize>: Sized {
-    fn from_list(inputs: &[Target]) -> Self;
-    fn register(builder: &mut CircuitBuilder<F, D>) -> Self;
-    fn set(pw: &mut PartialWitness<F>, targets: Vec<Target>, values: Vec<F>) -> anyhow::Result<()>;
-}
-
 pub struct Circuit {
-    pub private_inputs: PrivateInputs<Target>,
+    pub private_inputs: PrivateInputs<Target, BoolTarget>,
     pub public_inputs: PublicInputs<Target>,
     pub circuit: CircuitData<F, C, D>,
 }
@@ -49,7 +41,7 @@ pub fn circuit() -> Circuit {
     let mut builder = CircuitBuilder::<F, D>::new(config);
 
     let public_inputs = PublicInputs::<Target>::register(&mut builder);
-    let private_inputs = PrivateInputs::<Target>::register(&mut builder);
+    let private_inputs = PrivateInputs::<Target, BoolTarget>::register(&mut builder);
 
     // TODO: range check u16 for nat_code?
     builder.connect(
@@ -66,8 +58,6 @@ pub fn circuit() -> Circuit {
     builder.range_check(private_inputs.credential.birth_date, 32);
     builder.range_check(diff, 32);
 
-    // builder.
-
     Circuit {
         private_inputs,
         circuit: builder.build::<C>(),
@@ -78,16 +68,14 @@ pub fn circuit() -> Circuit {
 pub fn witness(
     credential: &Credential,
     signature: &Signature,
-    private_inputs: &PrivateInputs<Target>,
+    private_inputs: &PrivateInputs<Target, BoolTarget>,
 ) -> anyhow::Result<PartialWitness<F>> {
-    let credential: [F; LEN_CREDENTIAL] = (&credential.to_field()).into();
-    // let signature: encoding::Signature<F, bool> = signature.to_field();
     let mut pw = PartialWitness::new();
-    <PrivateInputs<Target> as Input<F, D>>::set(
+    PrivateInputs::set::<F, D>(
         &mut pw,
-        private_inputs.to_list().to_vec(),
+        private_inputs,
         // TODO: concat with signature
-        credential.to_vec(),
+        &PrivateInputs::from(credential, signature),
     )?;
     Ok(pw)
 }
@@ -99,11 +87,7 @@ pub fn prove(
     public_inputs: &PublicInputs<F>,
 ) -> anyhow::Result<ProofWithPublicInputs<F, C, D>> {
     let mut pw = witness(credential, signature, &circuit.private_inputs)?;
-    <PublicInputs<Target> as Input<F, D>>::set(
-        &mut pw,
-        circuit.public_inputs.to_list().to_vec(),
-        public_inputs.to_list().to_vec(),
-    )?;
+    PublicInputs::set::<F, D>(&mut pw, &circuit.public_inputs, public_inputs)?;
     circuit.circuit.prove(pw)
 }
 

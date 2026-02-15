@@ -44,11 +44,11 @@ impl SchnorrProof {
     }
 }
 
-impl<F: RichField> ToSignatureField<F> for SchnorrProof {
-    fn to_field(&self) -> Signature<F> {
+impl<F: RichField> ToSignatureField<F, bool> for SchnorrProof {
+    fn to_field(&self) -> Signature<F, bool> {
         Signature {
             r: self.r.to_field(),
-            s: self.s.to_field(),
+            s: crate::encoding::Scalar(self.s.to_bits_le()),
         }
     }
 }

@@ -37,9 +37,13 @@ mod tests {
     fn zk_proof() {
         let mut rng = StdRng::from_os_rng();
         let credential = Credential::random(&mut rng);
+        let sk = SecretKey::random(&mut rng);
+        let pk = PublicKey::from(&sk);
+        let ctx = Context::new(&pk, &credential);
+        let signature = Signature::sign(&sk, &ctx);
         let circuit = circuit();
         let public_inputs = PublicInputs::new();
-        let proof = prove(&circuit, &credential, &public_inputs).unwrap();
+        let proof = prove(&circuit, &credential, &signature, &public_inputs).unwrap();
         verify(&circuit.circuit, proof, &public_inputs).unwrap()
     }
     // #[test]

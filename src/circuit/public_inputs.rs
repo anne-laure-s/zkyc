@@ -9,7 +9,6 @@ use plonky2::{
 };
 
 use crate::{
-    circuit::Input,
     core::{credential::Nationality, date::cutoff18_from_today_for_tests},
     encoding::{
         conversion::{ToPointField, ToSingleField},
@@ -26,31 +25,28 @@ pub struct PublicInputs<T> {
     pub(crate) issuer_pk: Point<T>,
 }
 
-impl<F: RichField + Extendable<D>, const D: usize> Input<F, D> for PublicInputs<Target> {
-    fn from_list(public_inputs: &[Target]) -> Self {
-        let x: [Target; LEN_FIELD] = public_inputs[2..7].try_into().unwrap();
-        let z: [Target; LEN_FIELD] = public_inputs[7..12].try_into().unwrap();
-        let u: [Target; LEN_FIELD] = public_inputs[12..17].try_into().unwrap();
-        let t: [Target; LEN_FIELD] = public_inputs[17..22].try_into().unwrap();
-        PublicInputs {
-            nationality: public_inputs[0],
-            cutoff18_days: public_inputs[1],
-            issuer_pk: Point { x, z, u, t },
-        }
-    }
-    fn register(builder: &mut CircuitBuilder<F, D>) -> Self {
-        let mut res = Vec::with_capacity(LEN_PUBLIC_INPUTS);
-        for _ in 0..LEN_PUBLIC_INPUTS {
+impl PublicInputs<Target> {
+    pub fn register<F: RichField + Extendable<D>, const D: usize>(
+        builder: &mut CircuitBuilder<F, D>,
+    ) -> Self {
+        let res: [Target; LEN_PUBLIC_INPUTS] = std::array::from_fn(|_| {
             let target = builder.add_virtual_target();
             builder.register_public_input(target);
-            res.push(target)
-        }
-        <Self as Input<F, D>>::from_list(&res)
+            target
+        });
+        Self::from_list(&res)
     }
-    fn set(pw: &mut PartialWitness<F>, targets: Vec<Target>, values: Vec<F>) -> anyhow::Result<()> {
-        assert_eq!(values.len(), LEN_PUBLIC_INPUTS);
-        assert_eq!(targets.len(), LEN_PUBLIC_INPUTS);
-        for (target, &value) in targets.into_iter().zip(values.iter()) {
+
+    pub fn set<F: RichField + Extendable<D>, const D: usize>(
+        pw: &mut PartialWitness<F>,
+        targets: &PublicInputs<Target>,
+        values: &PublicInputs<F>,
+    ) -> anyhow::Result<()> {
+        for (target, value) in targets
+            .to_list()
+            .into_iter()
+            .zip(values.to_list().into_iter())
+        {
             pw.set_target(target, value)?;
         }
         Ok(())
@@ -58,6 +54,18 @@ impl<F: RichField + Extendable<D>, const D: usize> Input<F, D> for PublicInputs<
 }
 
 impl<T: Copy> PublicInputs<T> {
+    fn from_list(public_inputs: &[T; LEN_PUBLIC_INPUTS]) -> Self {
+        let x: [T; LEN_FIELD] = public_inputs[2..7].try_into().unwrap();
+        let z: [T; LEN_FIELD] = public_inputs[7..12].try_into().unwrap();
+        let u: [T; LEN_FIELD] = public_inputs[12..17].try_into().unwrap();
+        let t: [T; LEN_FIELD] = public_inputs[17..22].try_into().unwrap();
+        PublicInputs {
+            nationality: public_inputs[0],
+            cutoff18_days: public_inputs[1],
+            issuer_pk: Point { x, z, u, t },
+        }
+    }
+
     pub fn to_list(&self) -> [T; LEN_PUBLIC_INPUTS] {
         let mut res = vec![self.nationality, self.cutoff18_days];
         let issuer: [T; LEN_POINT] = (&self.issuer_pk).into();

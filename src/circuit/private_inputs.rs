@@ -2,73 +2,88 @@ use plonky2::{
     field::extension::Extendable,
     hash::hash_types::RichField,
     iop::{
-        target::Target,
+        target::{BoolTarget, Target},
         witness::{PartialWitness, WitnessWrite},
     },
     plonk::circuit_builder::CircuitBuilder,
 };
 
-use crate::{
-    circuit::Input,
-    encoding::{Credential, Signature, LEN_CREDENTIAL},
+use crate::encoding::{
+    conversion::ToSignatureField, Credential, Point, Scalar, Signature, LEN_CREDENTIAL, LEN_POINT,
+    LEN_SCALAR,
 };
 
-pub(crate) struct PrivateInputs<T> {
+pub(crate) struct PrivateInputs<T, TBool> {
     pub(crate) credential: Credential<T>,
-    pub(crate) signature: Signature<T>,
+    pub(crate) signature: Signature<T, TBool>,
 }
 
-pub const LEN_PRIVATE_INPUTS: usize = LEN_CREDENTIAL + LEN_SIGNATURE;
+/// len(credential) + len(signature.r)
+pub const LEN_PRIVATE_INPUTS: usize = LEN_CREDENTIAL + LEN_POINT;
 
-impl<F: RichField + Extendable<D>, const D: usize> Input<F, D> for PrivateInputs<Target> {
-    fn from_list(inputs: &[Target]) -> Self {
-        assert_eq!(inputs.len(), LEN_PRIVATE_INPUTS);
-        let credential: &[Target; LEN_CREDENTIAL] = &inputs[..LEN_CREDENTIAL].try_into().unwrap();
-        let signature: &[Target; LEN_SIGNATURE] = &inputs[LEN_CREDENTIAL..].try_into().unwrap();
-        Self {
-            credential: credential.into(),
-            signature: signature.into(),
-        }
+impl PrivateInputs<Target, BoolTarget> {
+    pub fn register<F: RichField + Extendable<D>, const D: usize>(
+        builder: &mut CircuitBuilder<F, D>,
+    ) -> Self {
+        let field_elts: [Target; LEN_PRIVATE_INPUTS] =
+            std::array::from_fn(|_| builder.add_virtual_target());
+        let s: [BoolTarget; LEN_SCALAR] =
+            std::array::from_fn(|_| builder.add_virtual_bool_target_safe());
+        Self::from_list(&field_elts, &s)
     }
-    fn register(builder: &mut CircuitBuilder<F, D>) -> Self {
-        let mut res = Vec::with_capacity(LEN_PRIVATE_INPUTS);
-        for _ in 0..LEN_PRIVATE_INPUTS {
-            let target = builder.add_virtual_target();
-            res.push(target)
-        }
-        <Self as Input<F, D>>::from_list(&res)
-    }
-    fn set(pw: &mut PartialWitness<F>, targets: Vec<Target>, values: Vec<F>) -> anyhow::Result<()> {
-        assert_eq!(values.len(), LEN_PRIVATE_INPUTS);
-        assert_eq!(targets.len(), LEN_PRIVATE_INPUTS);
-        for (target, &value) in targets.into_iter().zip(values.iter()) {
+
+    pub fn set<F: RichField + Extendable<D>, const D: usize>(
+        pw: &mut PartialWitness<F>,
+        targets: &PrivateInputs<Target, BoolTarget>,
+        values: &PrivateInputs<F, bool>,
+    ) -> anyhow::Result<()> {
+        let (field_targets, bool_targets) = targets.to_list();
+        let (field_values, bool_values) = values.to_list();
+        for (target, value) in field_targets.into_iter().zip(field_values.into_iter()) {
             pw.set_target(target, value)?;
+        }
+        for (target, value) in bool_targets.into_iter().zip(bool_values.into_iter()) {
+            pw.set_bool_target(target, value)?;
         }
         Ok(())
     }
 }
-
-impl<T: Copy> PrivateInputs<T> {
-    pub fn to_list(&self) -> [T; LEN_PRIVATE_INPUTS] {
-        let credential: [T; LEN_CREDENTIAL] = (&self.credential).into();
-        let signature: [T; LEN_SIGNATURE] = (&self.signature).into();
-        let mut res = credential.to_vec();
-        res.extend_from_slice(signature.as_slice());
-        res.try_into()
-            .unwrap_or_else(|_| panic!("Given list don't fit the right length"))
+impl<F: RichField> PrivateInputs<F, bool> {
+    pub fn from(
+        credential: &crate::core::credential::Credential,
+        signature: &crate::schnorr::signature::Signature,
+    ) -> Self {
+        Self {
+            credential: credential.to_field(),
+            signature: signature.to_field(),
+        }
     }
 }
 
-// impl PrivateInputs<Target> {
-//     pub fn witness<F: RichField>(&self, credential: &credential::Credential) -> anyhow::Result<PartialWitness<F>>  {
-//         let mut pw = PartialWitness::new();
-//         pw.set_target(
-//             self.nat_code,
-//             F::from_canonical_u16(credential.nationality().code()),
-//         )?;
-//         pw.set_target(
-//             self.dob_days,
-//             F::from_canonical_u32(days_from_origin(*credential.birth_date())),
-//         )?;
-//         Ok(pw)}
-// }
+impl<T: Copy, TBool: Copy> PrivateInputs<T, TBool> {
+    fn from_list(inputs: &[T; LEN_PRIVATE_INPUTS], bool_inputs: &[TBool; LEN_SCALAR]) -> Self {
+        let credential: &[T; LEN_CREDENTIAL] = &inputs[..LEN_CREDENTIAL].try_into().unwrap();
+        let r: &[T; LEN_POINT] = &inputs[LEN_CREDENTIAL..].try_into().unwrap();
+        let credential: Credential<T> = credential.into();
+        let r: Point<T> = r.into();
+        Self {
+            credential,
+            signature: Signature {
+                r,
+                s: Scalar(*bool_inputs),
+            },
+        }
+    }
+
+    pub fn to_list(&self) -> ([T; LEN_PRIVATE_INPUTS], [TBool; LEN_SCALAR]) {
+        let credential: [T; LEN_CREDENTIAL] = (&self.credential).into();
+        let r: [T; LEN_POINT] = (&self.signature.r).into();
+        let s: [TBool; LEN_SCALAR] = self.signature.s.0;
+        let mut field_elts = credential.to_vec();
+        field_elts.extend_from_slice(r.as_slice());
+        let field_elts: [T; LEN_PRIVATE_INPUTS] = field_elts
+            .try_into()
+            .unwrap_or_else(|_| panic!("Given list don't fit the right length"));
+        (field_elts, s)
+    }
+}
