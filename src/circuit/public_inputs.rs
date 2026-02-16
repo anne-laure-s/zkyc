@@ -62,7 +62,12 @@ impl<T: Copy> PublicInputs<T> {
         PublicInputs {
             nationality: public_inputs[0],
             cutoff18_days: public_inputs[1],
-            issuer_pk: Point { x, z, u, t },
+            issuer_pk: Point {
+                x: x.into(),
+                z: z.into(),
+                u: u.into(),
+                t: t.into(),
+            },
         }
     }
 
