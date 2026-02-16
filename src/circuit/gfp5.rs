@@ -10,6 +10,12 @@ use plonky2::{
 
 #[derive(Debug, Clone, Copy)]
 pub struct GFp5Target([Target; 5]);
+
+impl From<[Target; 5]> for GFp5Target {
+    fn from(value: [Target; 5]) -> Self {
+        Self(value)
+    }
+}
 // TODO: check endianness in the arith implementation
 pub trait CircuitBuilderGFp5<F: RichField + Extendable<D>, const D: usize> {
     fn add_virtual_gfp5_target(&mut self) -> GFp5Target;
@@ -60,13 +66,14 @@ impl<F: RichField + Extendable<D>, const D: usize> CircuitBuilderGFp5<F, D>
     for CircuitBuilder<F, D>
 {
     fn add_virtual_gfp5_target(&mut self) -> GFp5Target {
-        GFp5Target([
+        [
             self.add_virtual_target(),
             self.add_virtual_target(),
             self.add_virtual_target(),
             self.add_virtual_target(),
             self.add_virtual_target(),
-        ])
+        ]
+        .into()
     }
     fn connect_gfp5(&mut self, a: GFp5Target, b: GFp5Target) {
         for (lhs, rhs) in a.0.into_iter().zip(b.0.into_iter()) {
@@ -96,23 +103,25 @@ impl<F: RichField + Extendable<D>, const D: usize> CircuitBuilderGFp5<F, D>
     }
 
     fn one_gfp5(&mut self) -> GFp5Target {
-        GFp5Target([
+        [
             self.one(),
             self.zero(),
             self.zero(),
             self.zero(),
             self.zero(),
-        ])
+        ]
+        .into()
     }
 
     fn constant_gfp5(&mut self, c: [F; 5]) -> GFp5Target {
-        GFp5Target([
+        [
             self.constant(c[0]),
             self.constant(c[1]),
             self.constant(c[2]),
             self.constant(c[3]),
             self.constant(c[4]),
-        ])
+        ]
+        .into()
     }
     fn is_equal_gfp5(&mut self, a: GFp5Target, b: GFp5Target) -> BoolTarget {
         let terms = vec![
@@ -126,43 +135,47 @@ impl<F: RichField + Extendable<D>, const D: usize> CircuitBuilderGFp5<F, D>
         BoolTarget::new_unsafe(prod)
     }
     fn neg_gfp5(&mut self, a: GFp5Target) -> GFp5Target {
-        GFp5Target([
+        [
             self.neg(a.0[0]),
             self.neg(a.0[1]),
             self.neg(a.0[2]),
             self.neg(a.0[3]),
             self.neg(a.0[4]),
-        ])
+        ]
+        .into()
     }
 
     fn double_gfp5(&mut self, a: GFp5Target) -> GFp5Target {
-        GFp5Target([
+        [
             self.mul_const(F::TWO, a.0[0]),
             self.mul_const(F::TWO, a.0[1]),
             self.mul_const(F::TWO, a.0[2]),
             self.mul_const(F::TWO, a.0[3]),
             self.mul_const(F::TWO, a.0[4]),
-        ])
+        ]
+        .into()
     }
 
     fn add_gfp5(&mut self, a: GFp5Target, b: GFp5Target) -> GFp5Target {
-        GFp5Target([
+        [
             self.add(a.0[0], b.0[0]),
             self.add(a.0[1], b.0[1]),
             self.add(a.0[2], b.0[2]),
             self.add(a.0[3], b.0[3]),
             self.add(a.0[4], b.0[4]),
-        ])
+        ]
+        .into()
     }
 
     fn sub_gfp5(&mut self, a: GFp5Target, b: GFp5Target) -> GFp5Target {
-        GFp5Target([
+        [
             self.sub(a.0[0], b.0[0]),
             self.sub(a.0[1], b.0[1]),
             self.sub(a.0[2], b.0[2]),
             self.sub(a.0[3], b.0[3]),
             self.sub(a.0[4], b.0[4]),
-        ])
+        ]
+        .into()
     }
 
     fn mul_gfp5(&mut self, a: GFp5Target, b: GFp5Target) -> GFp5Target {
@@ -211,7 +224,7 @@ impl<F: RichField + Extendable<D>, const D: usize> CircuitBuilderGFp5<F, D>
         c4 = self.mul_add(a1, b3, c4);
         c4 = self.mul_add(a0, b4, c4);
 
-        GFp5Target([c0, c1, c2, c3, c4])
+        [c0, c1, c2, c3, c4].into()
     }
 
     fn mul_const_gfp5(&mut self, c: [F; 5], a: GFp5Target) -> GFp5Target {
@@ -246,7 +259,7 @@ impl<F: RichField + Extendable<D>, const D: usize> CircuitBuilderGFp5<F, D>
         let lhs = self.arithmetic(c0, c1, one, a4, a3);
         let r4 = self.add(lhs, rhs);
 
-        GFp5Target([r0, r1, r2, r3, r4])
+        [r0, r1, r2, r3, r4].into()
     }
 
     fn mul_by_b_gfp5(&mut self, v: GFp5Target) -> GFp5Target {
@@ -263,7 +276,7 @@ impl<F: RichField + Extendable<D>, const D: usize> CircuitBuilderGFp5<F, D>
         let r3 = self.mul(v.0[2], k);
         let r4 = self.mul(v.0[3], k);
 
-        GFp5Target([w0, r1, r2, r3, r4])
+        [w0, r1, r2, r3, r4].into()
     }
     /// multiplies every coefficient by an u32 constant
     fn mul_small_gfp5(&mut self, a: GFp5Target, rhs: u32) -> GFp5Target {
@@ -272,7 +285,7 @@ impl<F: RichField + Extendable<D>, const D: usize> CircuitBuilderGFp5<F, D>
         for (i, limb) in limbs.iter_mut().enumerate() {
             *limb = self.mul(a.0[i], k);
         }
-        GFp5Target(limbs)
+        limbs.into()
     }
     fn mul_small_k1_gfp5(&mut self, a: GFp5Target, rhs: u32) -> GFp5Target {
         // a * (rhs * w) with w^5 = 3 and base [1,w,w^2,w^3,w^4]
@@ -285,12 +298,12 @@ impl<F: RichField + Extendable<D>, const D: usize> CircuitBuilderGFp5<F, D>
         let d3 = self.mul(a.0[2], k);
         let d4 = self.mul(a.0[3], k);
 
-        GFp5Target([d0, d1, d2, d3, d4])
+        [d0, d1, d2, d3, d4].into()
     }
 
     fn select_gfp5(&mut self, c: BoolTarget, a: GFp5Target, b: GFp5Target) -> GFp5Target {
         let limbs: [Target; 5] = core::array::from_fn(|i| self.select(c, a.0[i], b.0[i]));
-        GFp5Target(limbs)
+        limbs.into()
     }
 }
 
