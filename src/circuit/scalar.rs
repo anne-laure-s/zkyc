@@ -9,11 +9,7 @@ use plonky2::{
 
 use crate::{arith::Scalar, encoding};
 
-#[derive(Debug, Clone, Copy)]
-pub struct ScalarTarget {
-    /// little endian
-    pub(crate) bits: [BoolTarget; Scalar::NB_BITS],
-}
+pub type ScalarTarget = encoding::Scalar<BoolTarget>;
 
 pub trait CircuitBuilderScalar<F: RichField + Extendable<D>, const D: usize> {
     /// The Target is asserted to be 0 <= s < modulus
@@ -78,17 +74,16 @@ impl<F: RichField + Extendable<D>, const D: usize> CircuitBuilderScalar<F, D>
             }
         }
         self.assert_one(lt.target);
-        ScalarTarget { bits }
+        encoding::Scalar(bits)
     }
     fn register_scalar_public_input(&mut self, s: ScalarTarget) {
-        s.bits
-            .iter()
+        s.0.iter()
             .for_each(|&t| self.register_public_input(t.target));
     }
 }
 impl<W: Witness<F>, F: RichField> PartialWitnessScalar<F> for W {
     fn get_scalar_target(&self, target: ScalarTarget) -> encoding::Scalar<bool> {
-        encoding::Scalar(target.bits.map(|b| self.get_bool_target(b)))
+        encoding::Scalar(target.0.map(|b| self.get_bool_target(b)))
     }
 
     fn set_scalar_target(
@@ -96,7 +91,7 @@ impl<W: Witness<F>, F: RichField> PartialWitnessScalar<F> for W {
         target: ScalarTarget,
         value: encoding::Scalar<bool>,
     ) -> anyhow::Result<()> {
-        for (&target, &value) in target.bits.iter().zip(value.0.iter()) {
+        for (&target, &value) in target.0.iter().zip(value.0.iter()) {
             self.set_bool_target(target, value)?;
         }
         Ok(())
@@ -194,7 +189,7 @@ mod tests {
         let mut pw = PartialWitness::<F>::new();
         let bits = modulus_bits_le();
 
-        for (i, s_t) in s_t.bits.into_iter().enumerate() {
+        for (i, s_t) in s_t.0.into_iter().enumerate() {
             pw.set_bool_target(s_t, bits[i]).unwrap();
         }
 

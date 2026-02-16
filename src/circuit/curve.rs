@@ -24,15 +24,15 @@ pub trait CircuitBuilderCurve<F: RichField + Extendable<D>, const D: usize> {
     fn select_point(&mut self, c: BoolTarget, a: PointTarget, b: PointTarget) -> PointTarget;
     fn schnorr_final_verification(
         &mut self,
-        s: &ScalarTarget,
-        e: &ScalarTarget,
+        s: ScalarTarget,
+        e: ScalarTarget,
         pk: PointTarget,
         r: PointTarget,
     );
     fn double_scalar_mul_shamir(
         &mut self,
-        s_bits_le: &[BoolTarget],
-        e_bits_le: &[BoolTarget],
+        s: ScalarTarget,
+        e: ScalarTarget,
         p: PointTarget,
     ) -> PointTarget;
     fn neg_point(&mut self, p: PointTarget) -> PointTarget;
@@ -320,10 +320,12 @@ impl<F: RichField + Extendable<D>, const D: usize> CircuitBuilderCurve<F, D>
     /// bits are provided as little-endian; we iterate from high to low index.
     fn double_scalar_mul_shamir(
         &mut self,
-        s_bits_le: &[BoolTarget],
-        e_bits_le: &[BoolTarget],
+        s: ScalarTarget,
+        e: ScalarTarget,
         p: PointTarget,
     ) -> PointTarget {
+        let s_bits_le = s.0;
+        let e_bits_le = e.0;
         let n = s_bits_le.len().max(e_bits_le.len());
 
         let g = self.generator();
@@ -365,15 +367,15 @@ impl<F: RichField + Extendable<D>, const D: usize> CircuitBuilderCurve<F, D>
     // Verifies: s*G == R + e*P   <=>   s*G + e*(-P) == R
     fn schnorr_final_verification(
         &mut self,
-        s: &ScalarTarget,
-        e: &ScalarTarget,
+        s: ScalarTarget,
+        e: ScalarTarget,
         pk: PointTarget,
         r: PointTarget,
     ) {
         let pk_neg = self.neg_point(pk);
 
         // lhs = s*G + e*(-P)
-        let lhs = self.double_scalar_mul_shamir(&s.bits, &e.bits, pk_neg);
+        let lhs = self.double_scalar_mul_shamir(s, e, pk_neg);
 
         // lhs must equal R
         self.connect_point(lhs, r);
@@ -847,7 +849,7 @@ mod tests {
         let v = native_generator();
 
         let mut pw = PartialWitness::<F>::new();
-        pw.set_point_target(p, v.clone()).unwrap();
+        pw.set_point_target(p, v).unwrap();
 
         let pis = prove_and_get_public_inputs(builder, pw);
 
