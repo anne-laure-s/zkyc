@@ -123,36 +123,6 @@ mod tests {
         core::array::from_fn(Scalar::modulus_bit_le)
     }
 
-    // Returns x = modulus - 1 in little-endian bit representation.
-    fn modulus_minus_one_bits_le() -> [bool; Scalar::NB_BITS] {
-        let mut bits = modulus_bits_le();
-
-        // subtract 1 from a LE bitstring
-        let mut borrow = true;
-        for b in bits.iter_mut() {
-            if !borrow {
-                break;
-            }
-            match (*b, borrow) {
-                (true, true) => {
-                    *b = false;
-                    borrow = false;
-                }
-                (false, true) => {
-                    *b = true;
-                    borrow = true;
-                }
-                _ => {}
-            }
-        }
-        // modulus is > 0, so borrow must resolve.
-        assert!(
-            !borrow,
-            "unexpected underflow when computing modulus-1 bits"
-        );
-        bits
-    }
-
     #[test]
     fn test_set_get_scalar_roundtrip() {
         let mut builder = CircuitBuilder::<F, D>::new(CircuitConfig::standard_recursion_config());
