@@ -74,7 +74,7 @@ impl<F: RichField + Extendable<D>, const D: usize> CircuitBuilderScalar<F, D>
             }
         }
         self.assert_one(lt.target);
-        encoding::Scalar(bits)
+        bits.into()
     }
     fn register_scalar_public_input(&mut self, s: ScalarTarget) {
         s.0.iter()
@@ -83,7 +83,7 @@ impl<F: RichField + Extendable<D>, const D: usize> CircuitBuilderScalar<F, D>
 }
 impl<W: Witness<F>, F: RichField> PartialWitnessScalar<F> for W {
     fn get_scalar_target(&self, target: ScalarTarget) -> encoding::Scalar<bool> {
-        encoding::Scalar(target.0.map(|b| self.get_bool_target(b)))
+        target.0.map(|b| self.get_bool_target(b)).into()
     }
 
     fn set_scalar_target(
@@ -141,8 +141,8 @@ mod tests {
         let mut bits = [false; Scalar::NB_BITS];
         bits[0] = true;
         bits[5] = true;
-        let s0 = encoding::Scalar(bits);
-        pw.set_scalar_target(s_t, s0.clone()).unwrap();
+        let s0: encoding::Scalar<bool> = bits.into();
+        pw.set_scalar_target(s_t, s0).unwrap();
         let got = pw.get_scalar_target(s_t);
         for (s, g) in s0.0.iter().zip(got.0.iter()) {
             assert!(s == g)
@@ -164,7 +164,7 @@ mod tests {
             builder.register_scalar_public_input(s_t);
 
             let mut pw = PartialWitness::<F>::new();
-            pw.set_scalar_target(s_t, scalar.clone()).unwrap();
+            pw.set_scalar_target(s_t, scalar).unwrap();
 
             let pis = prove_and_get_public_inputs(builder, pw);
 

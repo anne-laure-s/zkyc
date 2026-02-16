@@ -8,7 +8,7 @@ use crate::{
     },
     encoding::{
         self, Credential, Scalar, Signature, LEN_CREDENTIAL, LEN_FIELD, LEN_PASSPORT_NUMBER,
-        LEN_POINT, LEN_STRING,
+        LEN_POINT, LEN_SCALAR, LEN_STRING,
     },
 };
 
@@ -106,6 +106,11 @@ impl<F: Field> ToPointField<F> for arith::Point {
             u: self.U.to_field(),
             t: self.T.to_field(),
         }
+    }
+}
+impl<T: Copy> From<[T; LEN_SCALAR]> for Scalar<T> {
+    fn from(value: [T; LEN_SCALAR]) -> Self {
+        Self(value)
     }
 }
 
