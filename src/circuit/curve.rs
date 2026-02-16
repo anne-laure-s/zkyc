@@ -1,26 +1,24 @@
 use plonky2::{
     field::extension::Extendable,
     hash::hash_types::RichField,
-    iop::{target::BoolTarget, witness::Witness},
+    iop::{
+        target::{BoolTarget, Target},
+        witness::Witness,
+    },
     plonk::circuit_builder::CircuitBuilder,
 };
 
 use crate::{
     arith::Point,
     circuit::{
-        gfp5::{CircuitBuilderGFp5, GFp5Target, PartialWitnessGFp5},
+        gfp5::{CircuitBuilderGFp5, PartialWitnessGFp5},
         scalar::ScalarTarget,
     },
-    encoding::GFp5,
+    encoding::{self, GFp5},
 };
 
-#[derive(Clone, Copy, Debug)]
-pub struct PointTarget {
-    pub x: GFp5Target,
-    pub z: GFp5Target,
-    pub u: GFp5Target, // u = 0 for zero
-    pub t: GFp5Target,
-}
+pub type PointTarget = encoding::Point<Target>;
+
 pub trait CircuitBuilderCurve<F: RichField + Extendable<D>, const D: usize> {
     fn generator(&mut self) -> PointTarget;
     fn select_point(&mut self, c: BoolTarget, a: PointTarget, b: PointTarget) -> PointTarget;
