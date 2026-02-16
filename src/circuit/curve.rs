@@ -1,12 +1,14 @@
 use plonky2::{
-    field::extension::Extendable, hash::hash_types::RichField, iop::target::BoolTarget,
+    field::extension::Extendable,
+    hash::hash_types::RichField,
+    iop::{target::BoolTarget, witness::Witness},
     plonk::circuit_builder::CircuitBuilder,
 };
 
 use crate::{
     arith::Point,
     circuit::{
-        gfp5::{CircuitBuilderGFp5, GFp5Target},
+        gfp5::{CircuitBuilderGFp5, GFp5Target, PartialWitnessGFp5},
         scalar::ScalarTarget,
     },
 };
@@ -51,6 +53,11 @@ pub trait CircuitBuilderCurve<F: RichField + Extendable<D>, const D: usize> {
     fn constant_point_unsafe(&mut self, x: [F; 5], z: [F; 5], u: [F; 5], t: [F; 5]) -> PointTarget;
 
     // fn scalar_mul_bits_le(&mut self, bits_le: &[BoolTarget], p: PointTarget) -> PointTarget;
+}
+
+pub trait PartialWitnessPoint<F: RichField>: Witness<F> {
+    fn get_point_target(&self, target: PointTarget) -> crate::encoding::Point<F>;
+    fn set_point_target(&mut self, target: PointTarget, value: crate::encoding::Point<F>);
 }
 
 impl<F: RichField + Extendable<D>, const D: usize> CircuitBuilderCurve<F, D>
@@ -382,6 +389,24 @@ impl<F: RichField + Extendable<D>, const D: usize> CircuitBuilderCurve<F, D>
     }
 }
 
+impl<W: Witness<F>, F: RichField> PartialWitnessPoint<F> for W {
+    fn get_point_target(&self, target: PointTarget) -> crate::encoding::Point<F> {
+        crate::encoding::Point {
+            x: self.get_gfp5_target(target.x),
+            z: self.get_gfp5_target(target.z),
+            u: self.get_gfp5_target(target.u),
+            t: self.get_gfp5_target(target.t),
+        }
+    }
+
+    fn set_point_target(&mut self, target: PointTarget, value: crate::encoding::Point<F>) {
+        self.set_gfp5_target(target.x, value.x);
+        self.set_gfp5_target(target.z, value.z);
+        self.set_gfp5_target(target.u, value.u);
+        self.set_gfp5_target(target.t, value.t);
+    }
+}
+
 #[cfg(test)]
 mod tests {
 
@@ -398,7 +423,15 @@ mod tests {
     fn f(x: u64) -> F {
         F::from_canonical_u64(x)
     }
-
+    fn native_generator() -> crate::encoding::Point<F> {
+        let native = Point::GENERATOR;
+        crate::encoding::Point {
+            x: native.X.0.map(|x| f(x.to_u64())),
+            z: native.Z.0.map(|x| f(x.to_u64())),
+            u: native.U.0.map(|x| f(x.to_u64())),
+            t: native.T.0.map(|x| f(x.to_u64())),
+        }
+    }
     fn prove_and_get_public_inputs(builder: CircuitBuilder<F, D>, pw: PartialWitness<F>) -> Vec<F> {
         let data = builder.build::<Cfg>();
         let proof = data.prove(pw).expect("prove() should succeed");
@@ -544,20 +577,14 @@ mod tests {
 
         let pis = proof.public_inputs;
 
-        // Compare with native generator
-        let native = crate::arith::curve::Point::GENERATOR;
-
-        let expected_x: [F; 5] = native.X.0.map(|x| f(x.to_u64()));
-        let expected_z: [F; 5] = native.Z.0.map(|x| f(x.to_u64()));
-        let expected_u: [F; 5] = native.U.0.map(|x| f(x.to_u64()));
-        let expected_t: [F; 5] = native.T.0.map(|x| f(x.to_u64()));
+        let expected = native_generator();
 
         // public inputs are in order x,z,u,t (each 5 limbs)
         for i in 0..5 {
-            assert_eq!(pis[i], expected_x[i]);
-            assert_eq!(pis[5 + i], expected_z[i]);
-            assert_eq!(pis[10 + i], expected_u[i]);
-            assert_eq!(pis[15 + i], expected_t[i]);
+            assert_eq!(pis[i], expected.x[i]);
+            assert_eq!(pis[5 + i], expected.z[i]);
+            assert_eq!(pis[10 + i], expected.u[i]);
+            assert_eq!(pis[15 + i], expected.t[i]);
         }
     }
 
@@ -757,16 +784,12 @@ mod tests {
     fn test_assert_on_curve_rejects_tampered_x() {
         let mut builder = CircuitBuilder::<F, D>::new(CircuitConfig::standard_recursion_config());
 
-        let native = crate::arith::curve::Point::GENERATOR;
-        let mut bad_x = native.X.0.map(|v| F::from_canonical_u64(v.to_u64()));
-        let bad_z = native.Z.0.map(|v| F::from_canonical_u64(v.to_u64()));
-        let bad_u = native.U.0.map(|v| F::from_canonical_u64(v.to_u64()));
-        let bad_t = native.T.0.map(|v| F::from_canonical_u64(v.to_u64()));
+        let mut bad = native_generator();
 
         // Tamper: x[0] += 1
-        bad_x[0] += F::ONE;
+        bad.x[0] += F::ONE;
 
-        let bad = builder.constant_point_unsafe(bad_x, bad_z, bad_u, bad_t);
+        let bad = builder.constant_point_unsafe(bad.x, bad.z, bad.u, bad.t);
         builder.assert_on_curve(bad);
 
         prove_err(builder, PartialWitness::<F>::new());
@@ -787,5 +810,60 @@ mod tests {
         builder.assert_on_curve(junk);
 
         let _pis = prove_and_get_public_inputs(builder, PartialWitness::<F>::new());
+    }
+    #[test]
+    fn test_partial_witness_point_set_then_get_roundtrip() {
+        let mut builder = CircuitBuilder::<F, D>::new(CircuitConfig::standard_recursion_config());
+        let p = builder.add_virtual_point_target();
+
+        let mut pw = PartialWitness::<F>::new();
+
+        // Valeurs “non triviales” pour éviter qu’un swap passe inaperçu.
+        let mk = |base: u64| -> [F; 5] {
+            [
+                F::from_canonical_u64(base + 1),
+                F::from_canonical_u64(base + 2),
+                F::from_canonical_u64(base + 3),
+                F::from_canonical_u64(base + 4),
+                F::from_canonical_u64(base + 5),
+            ]
+        };
+
+        let v = crate::encoding::Point::<F> {
+            x: mk(10),
+            z: mk(20),
+            u: mk(30),
+            t: mk(40),
+        };
+
+        pw.set_point_target(p, v.clone());
+        let got = pw.get_point_target(p);
+
+        assert_eq!(got.x, v.x);
+        assert_eq!(got.z, v.z);
+        assert_eq!(got.u, v.u);
+        assert_eq!(got.t, v.t);
+    }
+    #[test]
+    fn test_partial_witness_point_populates_public_inputs_correctly() {
+        use plonky2::iop::witness::PartialWitness;
+
+        let mut builder = CircuitBuilder::<F, D>::new(CircuitConfig::standard_recursion_config());
+        let p = builder.add_virtual_point_target();
+
+        builder.register_point_public_input(p);
+
+        let v = native_generator();
+
+        let mut pw = PartialWitness::<F>::new();
+        pw.set_point_target(p, v.clone());
+
+        let pis = prove_and_get_public_inputs(builder, pw);
+
+        // Ordre: x(5), z(5), u(5), t(5)
+        assert_eq!(&pis[0..5], v.x.as_slice());
+        assert_eq!(&pis[5..10], v.z.as_slice());
+        assert_eq!(&pis[10..15], v.u.as_slice());
+        assert_eq!(&pis[15..20], v.t.as_slice());
     }
 }
