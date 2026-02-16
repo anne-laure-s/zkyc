@@ -7,8 +7,8 @@ use crate::{
         field::{GFp, GFp5},
     },
     encoding::{
-        Credential, Scalar, Signature, LEN_CREDENTIAL, LEN_FIELD, LEN_PASSPORT_NUMBER, LEN_POINT,
-        LEN_STRING,
+        self, Credential, Scalar, Signature, LEN_CREDENTIAL, LEN_FIELD, LEN_PASSPORT_NUMBER,
+        LEN_POINT, LEN_STRING,
     },
 };
 
@@ -22,6 +22,10 @@ pub trait ToSingleField<F: Field> {
 
 pub trait ToScalarField {
     fn to_field(&self) -> Scalar<bool>;
+}
+
+pub trait ToGFp5Field<F: Field> {
+    fn to_field(&self) -> encoding::GFp5<F>;
 }
 
 pub trait ToPointField<F: Field> {
@@ -57,6 +61,12 @@ impl<F: Field> ToSingleField<F> for u32 {
     }
 }
 
+impl<F: Field> ToSingleField<F> for GFp {
+    fn to_field(&self) -> F {
+        F::from_canonical_u64(self.to_u64())
+    }
+}
+
 impl<F: Field> ToVecField<F> for &[u8] {
     fn to_field(&self, expected_len: usize) -> Vec<F> {
         assert!(expected_len > 0);
@@ -82,37 +92,63 @@ impl ToScalarField for arith::Scalar {
     }
 }
 
-//TODO: NEXT: comment on implémente les scalaires dans le circuit ?
+impl<F: Field> ToGFp5Field<F> for GFp5 {
+    fn to_field(&self) -> encoding::GFp5<F> {
+        encoding::GFp5(self.0.map(|x| x.to_field()))
+    }
+}
 
 impl<F: Field> ToPointField<F> for arith::Point {
     fn to_field(&self) -> Point<F> {
         Point {
-            x: self.X.0.map(|x| F::from_canonical_u64(x.to_u64())),
-            z: self.Z.0.map(|x| F::from_canonical_u64(x.to_u64())),
-            u: self.U.0.map(|x| F::from_canonical_u64(x.to_u64())),
-            t: self.T.0.map(|x| F::from_canonical_u64(x.to_u64())),
+            x: self.X.to_field(),
+            z: self.Z.to_field(),
+            u: self.U.to_field(),
+            t: self.T.to_field(),
         }
+    }
+}
+
+impl<T: Copy> From<[T; LEN_FIELD]> for encoding::GFp5<T> {
+    fn from(value: [T; LEN_FIELD]) -> Self {
+        Self(value)
+    }
+}
+
+impl<F: RichField> From<encoding::GFp5<F>> for GFp5 {
+    fn from(value: encoding::GFp5<F>) -> Self {
+        GFp5(value.0.map(|x| GFp::from_u64_reduce(x.to_canonical_u64())))
+    }
+}
+
+impl<F: RichField> From<GFp5> for encoding::GFp5<F> {
+    fn from(value: GFp5) -> Self {
+        Self(value.0.map(|x| F::from_canonical_u64(x.to_u64())))
     }
 }
 
 impl<F: RichField> From<&Point<F>> for arith::Point {
     fn from(value: &Point<F>) -> Self {
         Self {
-            X: GFp5(value.x.map(|x| GFp::from_u64_reduce(x.to_canonical_u64()))),
-            Z: GFp5(value.z.map(|x| GFp::from_u64_reduce(x.to_canonical_u64()))),
-            U: GFp5(value.u.map(|x| GFp::from_u64_reduce(x.to_canonical_u64()))),
-            T: GFp5(value.t.map(|x| GFp::from_u64_reduce(x.to_canonical_u64()))),
+            X: value.x.into(),
+            Z: value.z.into(),
+            U: value.u.into(),
+            T: value.t.into(),
         }
     }
 }
 
 impl<T: Copy> From<&[T; LEN_POINT]> for Point<T> {
     fn from(value: &[T; LEN_POINT]) -> Self {
+        let x: [T; LEN_FIELD] = value[..LEN_FIELD].try_into().unwrap();
+        let z: [T; LEN_FIELD] = value[LEN_FIELD..LEN_FIELD * 2].try_into().unwrap();
+        let u: [T; LEN_FIELD] = value[LEN_FIELD * 2..LEN_FIELD * 3].try_into().unwrap();
+        let t: [T; LEN_FIELD] = value[LEN_FIELD * 3..].try_into().unwrap();
         Self {
-            x: value[..LEN_FIELD].try_into().unwrap(),
-            z: value[LEN_FIELD..LEN_FIELD * 2].try_into().unwrap(),
-            u: value[LEN_FIELD * 2..LEN_FIELD * 3].try_into().unwrap(),
-            t: value[LEN_FIELD * 3..].try_into().unwrap(),
+            x: x.into(),
+            z: z.into(),
+            u: u.into(),
+            t: t.into(),
         }
     }
 }
@@ -120,10 +156,10 @@ impl<T: Copy> From<&[T; LEN_POINT]> for Point<T> {
 impl<T: Copy> From<&Point<T>> for [T; LEN_POINT] {
     fn from(value: &Point<T>) -> Self {
         let mut res = Vec::with_capacity(LEN_POINT);
-        res.extend(value.x);
-        res.extend(value.z);
-        res.extend(value.u);
-        res.extend(value.t);
+        res.extend(value.x.0);
+        res.extend(value.z.0);
+        res.extend(value.u.0);
+        res.extend(value.t.0);
         res.try_into()
             .unwrap_or_else(|_| panic!("Given point don't fit the right length"))
     }

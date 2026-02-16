@@ -16,7 +16,7 @@ pub const LEN_SCALAR: usize = arith::Scalar::NB_BITS;
 pub const LEN_CREDENTIAL: usize = 3 * LEN_STRING + LEN_PASSPORT_NUMBER + 4 + LEN_POINT;
 
 /// Representation of a credential inside a circuit
-#[derive(Clone)]
+#[derive(Clone, Copy, Debug)]
 pub struct Credential<T> {
     pub first_name: [T; LEN_STRING],
     pub family_name: [T; LEN_STRING],
@@ -31,18 +31,21 @@ pub struct Credential<T> {
 
 // 1 u32 = 4 ascii chars
 
-#[derive(Clone)]
+#[derive(Clone, Copy, Debug)]
+pub struct GFp5<T>(pub [T; LEN_FIELD]);
+
+#[derive(Clone, Copy, Debug)]
 pub struct Point<T> {
-    pub x: [T; LEN_FIELD],
-    pub z: [T; LEN_FIELD],
-    pub u: [T; LEN_FIELD],
-    pub t: [T; LEN_FIELD],
+    pub x: GFp5<T>,
+    pub z: GFp5<T>,
+    pub u: GFp5<T>,
+    pub t: GFp5<T>,
 }
 
-#[derive(Clone)]
+#[derive(Clone, Copy, Debug)]
 pub struct Scalar<T>(pub(crate) [T; LEN_SCALAR]);
 
-#[derive(Clone)]
+#[derive(Clone, Copy, Debug)]
 pub struct Signature<T, TBool> {
     pub(crate) r: Point<T>,
     pub(crate) s: Scalar<TBool>,
