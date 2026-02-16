@@ -305,22 +305,14 @@ impl<F: RichField + Extendable<D>, const D: usize> CircuitBuilderGFp5<F, D>
 
 impl<W: Witness<F>, F: RichField> PartialWitnessGFp5<F> for W {
     fn get_gfp5_target(&self, target: GFp5Target) -> GFp5<F> {
-        [
-            self.get_target(target.0[0]),
-            self.get_target(target.0[1]),
-            self.get_target(target.0[2]),
-            self.get_target(target.0[3]),
-            self.get_target(target.0[4]),
-        ]
-        .into()
+        target.0.map(|t| self.get_target(t)).into()
     }
 
     fn set_gfp5_target(&mut self, target: GFp5Target, value: GFp5<F>) -> anyhow::Result<()> {
-        self.set_target(target.0[0], value.0[0])?;
-        self.set_target(target.0[1], value.0[1])?;
-        self.set_target(target.0[2], value.0[2])?;
-        self.set_target(target.0[3], value.0[3])?;
-        self.set_target(target.0[4], value.0[4])
+        for (target, value) in target.0.into_iter().zip(value.0.into_iter()) {
+            self.set_target(target, value)?;
+        }
+        Ok(())
     }
 }
 
