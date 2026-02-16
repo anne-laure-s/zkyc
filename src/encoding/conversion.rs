@@ -170,31 +170,13 @@ impl<T: Copy> From<&Point<T>> for [T; LEN_POINT] {
     }
 }
 
-// impl<T: Copy, TBool: Copy> From<&Signature<T, TBool>> for [T; LEN_SIGNATURE] {
-//     fn from(value: &Signature<T, TBool>) -> Self {
-//         let mut res = Vec::with_capacity(LEN_SIGNATURE);
-//         let r: [T; LEN_POINT] = (&value.r).into();
-//         let s: [TBool; LEN_SCALAR] = value.s.0;
-//         res.extend(r);
-//         res.extend(s);
-//         res.try_into()
-//             .unwrap_or_else(|_| panic!("Given signature don't fit the right length"))
-//     }
-// }
-
-// impl<T: Copy, TBool: Copy> From<&([T; LEN_POINT], [TBool, LEN_SCALAR])> for Signature<T, TBool> {
-//     fn from(value: &([T; LEN_POINT], [TBool, LEN_SCALAR])) -> Self {
-//         Self { r: value.0.into(), s: value.1.into() }
-//     }
-// }
-
 impl<T: Copy> From<&Credential<T>> for [T; LEN_CREDENTIAL] {
     fn from(value: &Credential<T>) -> Self {
         let mut res = Vec::with_capacity(LEN_CREDENTIAL);
-        res.extend(value.first_name);
-        res.extend(value.family_name);
-        res.extend(value.place_of_birth);
-        res.extend(value.passport_number);
+        res.extend(value.first_name.0);
+        res.extend(value.family_name.0);
+        res.extend(value.place_of_birth.0);
+        res.extend(value.passport_number.0);
         res.push(value.birth_date);
         res.push(value.expiration_date);
         res.push(value.gender);
@@ -210,14 +192,20 @@ const POS_BIRTH_DATE: usize = LEN_STRING * 3 + LEN_PASSPORT_NUMBER;
 const START_ISSUER: usize = POS_BIRTH_DATE + 4;
 impl<T: Copy> From<&[T; LEN_CREDENTIAL]> for Credential<T> {
     fn from(value: &[T; LEN_CREDENTIAL]) -> Self {
+        let first_name: [T; LEN_STRING] = value[0..LEN_STRING].try_into().unwrap();
+        let family_name: [T; LEN_STRING] = value[LEN_STRING..LEN_STRING * 2].try_into().unwrap();
+        let place_of_birth: [T; LEN_STRING] =
+            value[LEN_STRING * 2..LEN_STRING * 3].try_into().unwrap();
+        let passport_number = value[LEN_STRING * 3..LEN_STRING * 3 + LEN_PASSPORT_NUMBER]
+            .try_into()
+            .unwrap();
         let issuer: &[T; LEN_POINT] = &value[START_ISSUER..].try_into().unwrap();
+
         Self {
-            first_name: value[0..LEN_STRING].try_into().unwrap(),
-            family_name: value[LEN_STRING..LEN_STRING * 2].try_into().unwrap(),
-            place_of_birth: value[LEN_STRING * 2..LEN_STRING * 3].try_into().unwrap(),
-            passport_number: value[LEN_STRING * 3..LEN_STRING * 3 + LEN_PASSPORT_NUMBER]
-                .try_into()
-                .unwrap(),
+            first_name: encoding::String(first_name),
+            family_name: encoding::String(family_name),
+            place_of_birth: encoding::String(place_of_birth),
+            passport_number: encoding::PassportNumber(passport_number),
             birth_date: value[POS_BIRTH_DATE],
             expiration_date: value[POS_BIRTH_DATE + 1],
             gender: value[POS_BIRTH_DATE + 2],

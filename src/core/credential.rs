@@ -306,13 +306,13 @@ impl Credential {
 
     pub fn to_field<F: Field>(&self) -> encoding::Credential<F> {
         encoding::Credential {
-            first_name: self.first_name.0.to_field(),
-            family_name: self.family_name.0.to_field(),
+            first_name: encoding::String(self.first_name.0.to_field()),
+            family_name: encoding::String(self.family_name.0.to_field()),
             birth_date: self.birth_date.to_field(),
-            place_of_birth: self.place_of_birth.0.to_field(),
+            place_of_birth: encoding::String(self.place_of_birth.0.to_field()),
             gender: self.gender.to_field(),
             nationality: self.nationality.to_field(),
-            passport_number: self.passport_number.to_field(),
+            passport_number: encoding::PassportNumber(self.passport_number.to_field()),
             expiration_date: self.expiration_date.to_field(),
             issuer: self.issuer.to_field(),
         }

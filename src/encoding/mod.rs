@@ -15,14 +15,22 @@ pub const LEN_SCALAR: usize = arith::Scalar::NB_BITS;
 /// size of a credential<T> in number of T elements
 pub const LEN_CREDENTIAL: usize = 3 * LEN_STRING + LEN_PASSPORT_NUMBER + 4 + LEN_POINT;
 
+/// Representation of a string inside a circuit
+#[derive(Clone, Copy, Debug)]
+pub struct String<T>(pub [T; LEN_STRING]);
+/// Representation of a passport number inside a circuit.
+/// Passport number is assumed to b french (fits on 9 u8)
+#[derive(Clone, Copy, Debug)]
+pub struct PassportNumber<T>(pub [T; LEN_PASSPORT_NUMBER]);
+
 /// Representation of a credential inside a circuit
 #[derive(Clone, Copy, Debug)]
 pub struct Credential<T> {
-    pub first_name: [T; LEN_STRING],
-    pub family_name: [T; LEN_STRING],
-    pub place_of_birth: [T; LEN_STRING],
-    pub passport_number: [T; LEN_PASSPORT_NUMBER], // assumed to be french (9 u8)
-    pub birth_date: T,                             // number of days since origin
+    pub first_name: String<T>,
+    pub family_name: String<T>,
+    pub place_of_birth: String<T>,
+    pub passport_number: PassportNumber<T>, // assumed to be french (9 u8)
+    pub birth_date: T,                      // number of days since origin
     pub expiration_date: T,
     pub gender: T,
     pub nationality: T,
