@@ -44,12 +44,17 @@ pub trait PartialWitnessGFp5<F: RichField>: Witness<F> {
         targets.iter().map(|&t| self.get_gfp5_target(t)).collect()
     }
 
-    fn set_gfp5_target(&mut self, target: GFp5Target, value: [F; 5]);
+    fn set_gfp5_target(&mut self, target: GFp5Target, value: [F; 5]) -> anyhow::Result<()>;
 
-    fn set_gfp5_targets(&mut self, targets: &[GFp5Target], values: &[[F; 5]]) {
+    fn set_gfp5_targets(
+        &mut self,
+        targets: &[GFp5Target],
+        values: &[[F; 5]],
+    ) -> anyhow::Result<()> {
         for (&t, &v) in targets.iter().zip(values.iter()) {
-            self.set_gfp5_target(t, v);
+            self.set_gfp5_target(t, v)?;
         }
+        Ok(())
     }
 }
 
@@ -331,12 +336,12 @@ impl<W: Witness<F>, F: RichField> PartialWitnessGFp5<F> for W {
         ]
     }
 
-    fn set_gfp5_target(&mut self, target: GFp5Target, value: [F; 5]) {
-        self.set_target(target.limbs[0], value[0]).unwrap();
-        self.set_target(target.limbs[1], value[1]).unwrap();
-        self.set_target(target.limbs[2], value[2]).unwrap();
-        self.set_target(target.limbs[3], value[3]).unwrap();
-        self.set_target(target.limbs[4], value[4]).unwrap();
+    fn set_gfp5_target(&mut self, target: GFp5Target, value: [F; 5]) -> anyhow::Result<()> {
+        self.set_target(target.limbs[0], value[0])?;
+        self.set_target(target.limbs[1], value[1])?;
+        self.set_target(target.limbs[2], value[2])?;
+        self.set_target(target.limbs[3], value[3])?;
+        self.set_target(target.limbs[4], value[4])
     }
 }
 
@@ -470,8 +475,8 @@ mod tests {
         let b = [f(10), f(20), f(30), f(40), f(50)];
 
         let mut pw = PartialWitness::<F>::new();
-        pw.set_gfp5_target(a_t, a);
-        pw.set_gfp5_target(b_t, b);
+        pw.set_gfp5_target(a_t, a).unwrap();
+        pw.set_gfp5_target(b_t, b).unwrap();
 
         let pis = prove_and_get_public_inputs(builder, pw);
 
@@ -495,8 +500,8 @@ mod tests {
         let b = [f(17), f(19), f(23), f(29), f(31)];
 
         let mut pw = PartialWitness::<F>::new();
-        pw.set_gfp5_target(a_t, a);
-        pw.set_gfp5_target(b_t, b);
+        pw.set_gfp5_target(a_t, a).unwrap();
+        pw.set_gfp5_target(b_t, b).unwrap();
 
         let pis = prove_and_get_public_inputs(builder, pw);
         assert_eq!(&pis[0..5], &mul_native(a, b));
@@ -520,7 +525,7 @@ mod tests {
 
         let a = [f(101), f(102), f(103), f(104), f(105)];
         let mut pw = PartialWitness::<F>::new();
-        pw.set_gfp5_target(a_t, a);
+        pw.set_gfp5_target(a_t, a).unwrap();
 
         let pis = prove_and_get_public_inputs(builder, pw);
         assert_eq!(&pis[0..5], &pis[5..10]);
@@ -543,7 +548,7 @@ mod tests {
 
         let a = [f(9), f(8), f(7), f(6), f(5)];
         let mut pw = PartialWitness::<F>::new();
-        pw.set_gfp5_target(a_t, a);
+        pw.set_gfp5_target(a_t, a).unwrap();
 
         let pis = prove_and_get_public_inputs(builder, pw);
 
@@ -578,8 +583,8 @@ mod tests {
         // Case 1: a=0, b!=0, c=true -> select(a), eq=false, is_zero(a)=true
         {
             let mut pw = PartialWitness::<F>::new();
-            pw.set_gfp5_target(a_t, a);
-            pw.set_gfp5_target(b_t, b);
+            pw.set_gfp5_target(a_t, a).unwrap();
+            pw.set_gfp5_target(b_t, b).unwrap();
             pw.set_bool_target(c_bool, true).unwrap();
 
             let proof = data.prove(pw).unwrap();
@@ -594,8 +599,8 @@ mod tests {
         // Case 2: a=b, c=false -> select(b), eq=true, is_zero(a)=false
         {
             let mut pw = PartialWitness::<F>::new();
-            pw.set_gfp5_target(a_t, b);
-            pw.set_gfp5_target(b_t, b);
+            pw.set_gfp5_target(a_t, b).unwrap();
+            pw.set_gfp5_target(b_t, b).unwrap();
             pw.set_bool_target(c_bool, false).unwrap();
 
             let proof = data.prove(pw).unwrap();

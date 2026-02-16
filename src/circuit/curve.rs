@@ -57,7 +57,11 @@ pub trait CircuitBuilderCurve<F: RichField + Extendable<D>, const D: usize> {
 
 pub trait PartialWitnessPoint<F: RichField>: Witness<F> {
     fn get_point_target(&self, target: PointTarget) -> crate::encoding::Point<F>;
-    fn set_point_target(&mut self, target: PointTarget, value: crate::encoding::Point<F>);
+    fn set_point_target(
+        &mut self,
+        target: PointTarget,
+        value: crate::encoding::Point<F>,
+    ) -> anyhow::Result<()>;
 }
 
 impl<F: RichField + Extendable<D>, const D: usize> CircuitBuilderCurve<F, D>
@@ -399,11 +403,16 @@ impl<W: Witness<F>, F: RichField> PartialWitnessPoint<F> for W {
         }
     }
 
-    fn set_point_target(&mut self, target: PointTarget, value: crate::encoding::Point<F>) {
-        self.set_gfp5_target(target.x, value.x);
-        self.set_gfp5_target(target.z, value.z);
-        self.set_gfp5_target(target.u, value.u);
-        self.set_gfp5_target(target.t, value.t);
+    fn set_point_target(
+        &mut self,
+        target: PointTarget,
+        value: crate::encoding::Point<F>,
+    ) -> anyhow::Result<()> {
+        self.set_gfp5_target(target.x, value.x)?;
+        self.set_gfp5_target(target.z, value.z)?;
+        self.set_gfp5_target(target.u, value.u)?;
+        self.set_gfp5_target(target.t, value.t)?;
+        Ok(())
     }
 }
 
@@ -836,7 +845,7 @@ mod tests {
             t: mk(40),
         };
 
-        pw.set_point_target(p, v.clone());
+        pw.set_point_target(p, v).unwrap();
         let got = pw.get_point_target(p);
 
         assert_eq!(got.x, v.x);
@@ -856,7 +865,7 @@ mod tests {
         let v = native_generator();
 
         let mut pw = PartialWitness::<F>::new();
-        pw.set_point_target(p, v.clone());
+        pw.set_point_target(p, v.clone()).unwrap();
 
         let pis = prove_and_get_public_inputs(builder, pw);
 

@@ -24,7 +24,7 @@ pub trait CircuitBuilderScalar<F: RichField + Extendable<D>, const D: usize> {
 pub trait PartialWitnessScalar<F: RichField>: Witness<F> {
     fn get_scalar_target(&self, target: ScalarTarget) -> Scalar;
 
-    fn set_scalar_target(&mut self, target: ScalarTarget, value: Scalar);
+    fn set_scalar_target(&mut self, target: ScalarTarget, value: Scalar) -> anyhow::Result<()>;
 }
 
 impl<F: RichField + Extendable<D>, const D: usize> CircuitBuilderScalar<F, D>
@@ -87,10 +87,11 @@ impl<W: Witness<F>, F: RichField> PartialWitnessScalar<F> for W {
         Scalar::from_bits_le(&target.bits.map(|b| self.get_bool_target(b)))
     }
 
-    fn set_scalar_target(&mut self, target: ScalarTarget, value: Scalar) {
+    fn set_scalar_target(&mut self, target: ScalarTarget, value: Scalar) -> anyhow::Result<()> {
         for (&target, &value) in target.bits.iter().zip(value.to_bits_le().iter()) {
-            self.set_bool_target(target, value).unwrap();
+            self.set_bool_target(target, value)?;
         }
+        Ok(())
     }
 }
 
@@ -136,7 +137,7 @@ mod tests {
         bits[0] = true;
         bits[5] = true;
         let s0 = Scalar::from_bits_le(&bits);
-        pw.set_scalar_target(s_t, s0);
+        pw.set_scalar_target(s_t, s0).unwrap();
         let got = pw.get_scalar_target(s_t);
         assert!((got.equals(s0)) == u64::MAX)
     }
@@ -152,7 +153,7 @@ mod tests {
             builder.register_scalar_public_input(s_t);
 
             let mut pw = PartialWitness::<F>::new();
-            pw.set_scalar_target(s_t, scalar);
+            pw.set_scalar_target(s_t, scalar).unwrap();
 
             let pis = prove_and_get_public_inputs(builder, pw);
 
