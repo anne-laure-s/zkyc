@@ -11,6 +11,7 @@ use crate::{
         gfp5::{CircuitBuilderGFp5, GFp5Target, PartialWitnessGFp5},
         scalar::ScalarTarget,
     },
+    encoding::GFp5,
 };
 
 #[derive(Clone, Copy, Debug)]
@@ -47,7 +48,13 @@ pub trait CircuitBuilderCurve<F: RichField + Extendable<D>, const D: usize> {
     fn is_equal_point(&mut self, a: PointTarget, b: PointTarget) -> BoolTarget;
     fn add_point(&mut self, p: PointTarget, q: PointTarget) -> PointTarget;
     fn double_point(&mut self, p: PointTarget) -> PointTarget;
-    fn constant_point_unsafe(&mut self, x: [F; 5], z: [F; 5], u: [F; 5], t: [F; 5]) -> PointTarget;
+    fn constant_point_unsafe(
+        &mut self,
+        x: GFp5<F>,
+        z: GFp5<F>,
+        u: GFp5<F>,
+        t: GFp5<F>,
+    ) -> PointTarget;
 }
 
 pub trait PartialWitnessCurve<F: RichField>: Witness<F> {
@@ -94,15 +101,11 @@ impl<F: RichField + Extendable<D>, const D: usize> CircuitBuilderCurve<F, D>
 
     fn generator(&mut self) -> PointTarget {
         let generator = Point::GENERATOR;
-        let x = generator.X.0.map(|x| F::from_canonical_u64(x.to_u64()));
-        let z = generator.Z.0.map(|x| F::from_canonical_u64(x.to_u64()));
-        let u = generator.U.0.map(|x| F::from_canonical_u64(x.to_u64()));
-        let t = generator.T.0.map(|x| F::from_canonical_u64(x.to_u64()));
         PointTarget {
-            x: self.constant_gfp5(x),
-            z: self.constant_gfp5(z),
-            u: self.constant_gfp5(u),
-            t: self.constant_gfp5(t),
+            x: self.constant_gfp5(generator.X.into()),
+            z: self.constant_gfp5(generator.Z.into()),
+            u: self.constant_gfp5(generator.U.into()),
+            t: self.constant_gfp5(generator.T.into()),
         }
     }
 
@@ -378,7 +381,13 @@ impl<F: RichField + Extendable<D>, const D: usize> CircuitBuilderCurve<F, D>
         self.connect_point(lhs, r);
     }
 
-    fn constant_point_unsafe(&mut self, x: [F; 5], z: [F; 5], u: [F; 5], t: [F; 5]) -> PointTarget {
+    fn constant_point_unsafe(
+        &mut self,
+        x: GFp5<F>,
+        z: GFp5<F>,
+        u: GFp5<F>,
+        t: GFp5<F>,
+    ) -> PointTarget {
         PointTarget {
             x: self.constant_gfp5(x),
             z: self.constant_gfp5(z),
@@ -430,10 +439,10 @@ mod tests {
     fn native_generator() -> crate::encoding::Point<F> {
         let native = Point::GENERATOR;
         crate::encoding::Point {
-            x: native.X.0.map(|x| f(x.to_u64())),
-            z: native.Z.0.map(|x| f(x.to_u64())),
-            u: native.U.0.map(|x| f(x.to_u64())),
-            t: native.T.0.map(|x| f(x.to_u64())),
+            x: native.X.into(),
+            z: native.Z.into(),
+            u: native.U.into(),
+            t: native.T.into(),
         }
     }
     fn prove_and_get_public_inputs(builder: CircuitBuilder<F, D>, pw: PartialWitness<F>) -> Vec<F> {
@@ -530,10 +539,10 @@ mod tests {
 
         let z = builder.zero_point();
         let nz = builder.constant_point_unsafe(
-            [F::ZERO; 5],
-            [F::ONE, F::ZERO, F::ZERO, F::ZERO, F::ZERO],
-            [F::ONE, F::ZERO, F::ZERO, F::ZERO, F::ZERO], // u != 0 => non-zero point (for is_zero_point)
-            [F::ONE, F::ZERO, F::ZERO, F::ZERO, F::ZERO],
+            [F::ZERO; 5].into(),
+            [F::ONE, F::ZERO, F::ZERO, F::ZERO, F::ZERO].into(),
+            [F::ONE, F::ZERO, F::ZERO, F::ZERO, F::ZERO].into(), // u != 0 => non-zero point (for is_zero_point)
+            [F::ONE, F::ZERO, F::ZERO, F::ZERO, F::ZERO].into(),
         );
 
         let eq_zz = builder.is_equal_point(z, z);
@@ -585,10 +594,10 @@ mod tests {
 
         // public inputs are in order x,z,u,t (each 5 limbs)
         for i in 0..5 {
-            assert_eq!(pis[i], expected.x[i]);
-            assert_eq!(pis[5 + i], expected.z[i]);
-            assert_eq!(pis[10 + i], expected.u[i]);
-            assert_eq!(pis[15 + i], expected.t[i]);
+            assert_eq!(pis[i], expected.x.0[i]);
+            assert_eq!(pis[5 + i], expected.z.0[i]);
+            assert_eq!(pis[10 + i], expected.u.0[i]);
+            assert_eq!(pis[15 + i], expected.t.0[i]);
         }
     }
 
@@ -598,17 +607,17 @@ mod tests {
 
         // Two arbitrary constant "points" (not necessarily on-curve); this test only checks selection wiring.
         let a = builder.constant_point_unsafe(
-            [f(11), f(12), f(13), f(14), f(15)],
-            [f(21), f(22), f(23), f(24), f(25)],
-            [f(31), f(32), f(33), f(34), f(35)],
-            [f(41), f(42), f(43), f(44), f(45)],
+            [f(11), f(12), f(13), f(14), f(15)].into(),
+            [f(21), f(22), f(23), f(24), f(25)].into(),
+            [f(31), f(32), f(33), f(34), f(35)].into(),
+            [f(41), f(42), f(43), f(44), f(45)].into(),
         );
 
         let b = builder.constant_point_unsafe(
-            [f(111), f(112), f(113), f(114), f(115)],
-            [f(121), f(122), f(123), f(124), f(125)],
-            [f(131), f(132), f(133), f(134), f(135)],
-            [f(141), f(142), f(143), f(144), f(145)],
+            [f(111), f(112), f(113), f(114), f(115)].into(),
+            [f(121), f(122), f(123), f(124), f(125)].into(),
+            [f(131), f(132), f(133), f(134), f(135)].into(),
+            [f(141), f(142), f(143), f(144), f(145)].into(),
         );
 
         let c = builder.add_virtual_bool_target_safe();
@@ -668,28 +677,28 @@ mod tests {
         //   q.u = p.u * ku, q.t = p.t * ku  => U/T same
         // and u != 0 so they are treated as non-zero points by is_equal_point.
         let p = builder.constant_point_unsafe(
-            [f(2), f(0), f(0), f(0), f(0)], // x
-            [f(3), f(0), f(0), f(0), f(0)], // z
-            [f(5), f(0), f(0), f(0), f(0)], // u (non-zero)
-            [f(7), f(0), f(0), f(0), f(0)], // t
+            [f(2), f(0), f(0), f(0), f(0)].into(), // x
+            [f(3), f(0), f(0), f(0), f(0)].into(), // z
+            [f(5), f(0), f(0), f(0), f(0)].into(), // u (non-zero)
+            [f(7), f(0), f(0), f(0), f(0)].into(), // t
         );
 
         let kx = f(9);
         let ku = f(11);
 
         let q = builder.constant_point_unsafe(
-            [f(2) * kx, f(0), f(0), f(0), f(0)],
-            [f(3) * kx, f(0), f(0), f(0), f(0)],
-            [f(5) * ku, f(0), f(0), f(0), f(0)],
-            [f(7) * ku, f(0), f(0), f(0), f(0)],
+            [f(2) * kx, f(0), f(0), f(0), f(0)].into(),
+            [f(3) * kx, f(0), f(0), f(0), f(0)].into(),
+            [f(5) * ku, f(0), f(0), f(0), f(0)].into(),
+            [f(7) * ku, f(0), f(0), f(0), f(0)].into(),
         );
 
         // A clearly different point (break X/Z)
         let r = builder.constant_point_unsafe(
-            [f(2) * kx + F::ONE, f(0), f(0), f(0), f(0)],
-            [f(3) * kx, f(0), f(0), f(0), f(0)],
-            [f(5) * ku, f(0), f(0), f(0), f(0)],
-            [f(7) * ku, f(0), f(0), f(0), f(0)],
+            [f(2) * kx + F::ONE, f(0), f(0), f(0), f(0)].into(),
+            [f(3) * kx, f(0), f(0), f(0), f(0)].into(),
+            [f(5) * ku, f(0), f(0), f(0), f(0)].into(),
+            [f(7) * ku, f(0), f(0), f(0), f(0)].into(),
         );
 
         let eq_pq = builder.is_equal_point(p, q);
@@ -746,30 +755,10 @@ mod tests {
         let g3 = g2 + g;
         let g5 = g3 + g2;
 
-        let tg = builder.constant_point_unsafe(
-            g.X.0.map(|x| f(x.to_u64())),
-            g.Z.0.map(|x| f(x.to_u64())),
-            g.U.0.map(|x| f(x.to_u64())),
-            g.T.0.map(|x| f(x.to_u64())),
-        );
-        let tg2 = builder.constant_point_unsafe(
-            g2.X.0.map(|x| f(x.to_u64())),
-            g2.Z.0.map(|x| f(x.to_u64())),
-            g2.U.0.map(|x| f(x.to_u64())),
-            g2.T.0.map(|x| f(x.to_u64())),
-        );
-        let tg3 = builder.constant_point_unsafe(
-            g3.X.0.map(|x| f(x.to_u64())),
-            g3.Z.0.map(|x| f(x.to_u64())),
-            g3.U.0.map(|x| f(x.to_u64())),
-            g3.T.0.map(|x| f(x.to_u64())),
-        );
-        let tg5 = builder.constant_point_unsafe(
-            g5.X.0.map(|x| f(x.to_u64())),
-            g5.Z.0.map(|x| f(x.to_u64())),
-            g5.U.0.map(|x| f(x.to_u64())),
-            g5.T.0.map(|x| f(x.to_u64())),
-        );
+        let tg = builder.constant_point_unsafe(g.X.into(), g.Z.into(), g.U.into(), g.T.into());
+        let tg2 = builder.constant_point_unsafe(g2.X.into(), g2.Z.into(), g2.U.into(), g2.T.into());
+        let tg3 = builder.constant_point_unsafe(g3.X.into(), g3.Z.into(), g3.U.into(), g3.T.into());
+        let tg5 = builder.constant_point_unsafe(g5.X.into(), g5.Z.into(), g5.U.into(), g5.T.into());
 
         builder.assert_on_curve(tg);
         builder.assert_on_curve(tg2);
@@ -791,7 +780,7 @@ mod tests {
         let mut bad = native_generator();
 
         // Tamper: x[0] += 1
-        bad.x[0] += F::ONE;
+        bad.x.0[0] += F::ONE;
 
         let bad = builder.constant_point_unsafe(bad.x, bad.z, bad.u, bad.t);
         builder.assert_on_curve(bad);
@@ -805,10 +794,10 @@ mod tests {
 
         // u = 0 => bypass
         let junk = builder.constant_point_unsafe(
-            [F::from_canonical_u64(123); 5], // X junk
-            [F::from_canonical_u64(456); 5], // Z junk
-            [F::ZERO; 5],                    // U = 0  => bypass
-            [F::from_canonical_u64(789); 5], // T junk
+            [F::from_canonical_u64(123); 5].into(), // X junk
+            [F::from_canonical_u64(456); 5].into(), // Z junk
+            [F::ZERO; 5].into(),                    // U = 0  => bypass
+            [F::from_canonical_u64(789); 5].into(), // T junk
         );
 
         builder.assert_on_curve(junk);
@@ -834,19 +823,19 @@ mod tests {
         };
 
         let v = crate::encoding::Point::<F> {
-            x: mk(10),
-            z: mk(20),
-            u: mk(30),
-            t: mk(40),
+            x: mk(10).into(),
+            z: mk(20).into(),
+            u: mk(30).into(),
+            t: mk(40).into(),
         };
 
         pw.set_point_target(p, v).unwrap();
         let got = pw.get_point_target(p);
 
-        assert_eq!(got.x, v.x);
-        assert_eq!(got.z, v.z);
-        assert_eq!(got.u, v.u);
-        assert_eq!(got.t, v.t);
+        assert_eq!(got.x.0, v.x.0);
+        assert_eq!(got.z.0, v.z.0);
+        assert_eq!(got.u.0, v.u.0);
+        assert_eq!(got.t.0, v.t.0);
     }
     #[test]
     fn test_partial_witness_point_populates_public_inputs_correctly() {
@@ -865,9 +854,9 @@ mod tests {
         let pis = prove_and_get_public_inputs(builder, pw);
 
         // Ordre: x(5), z(5), u(5), t(5)
-        assert_eq!(&pis[0..5], v.x.as_slice());
-        assert_eq!(&pis[5..10], v.z.as_slice());
-        assert_eq!(&pis[10..15], v.u.as_slice());
-        assert_eq!(&pis[15..20], v.t.as_slice());
+        assert_eq!(&pis[0..5], v.x.0.as_slice());
+        assert_eq!(&pis[5..10], v.z.0.as_slice());
+        assert_eq!(&pis[10..15], v.u.0.as_slice());
+        assert_eq!(&pis[15..20], v.t.0.as_slice());
     }
 }
