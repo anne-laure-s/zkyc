@@ -43,16 +43,11 @@ pub trait CircuitBuilderCurve<F: RichField + Extendable<D>, const D: usize> {
     fn register_point_public_input(&mut self, p: PointTarget);
     fn assert_on_curve(&mut self, p: PointTarget);
     fn zero_point(&mut self) -> PointTarget;
-    // fn point_select(&mut self, cond: BoolTarget, a: PointTarget, b: PointTarget) -> PointTarget;
     fn connect_point(&mut self, a: PointTarget, b: PointTarget);
     fn is_equal_point(&mut self, a: PointTarget, b: PointTarget) -> BoolTarget;
-
     fn add_point(&mut self, p: PointTarget, q: PointTarget) -> PointTarget;
     fn double_point(&mut self, p: PointTarget) -> PointTarget;
-
     fn constant_point_unsafe(&mut self, x: [F; 5], z: [F; 5], u: [F; 5], t: [F; 5]) -> PointTarget;
-
-    // fn scalar_mul_bits_le(&mut self, bits_le: &[BoolTarget], p: PointTarget) -> PointTarget;
 }
 
 pub trait PartialWitnessCurve<F: RichField>: Witness<F> {
