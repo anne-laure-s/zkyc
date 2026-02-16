@@ -55,7 +55,7 @@ pub trait CircuitBuilderCurve<F: RichField + Extendable<D>, const D: usize> {
     // fn scalar_mul_bits_le(&mut self, bits_le: &[BoolTarget], p: PointTarget) -> PointTarget;
 }
 
-pub trait PartialWitnessPoint<F: RichField>: Witness<F> {
+pub trait PartialWitnessCurve<F: RichField>: Witness<F> {
     fn get_point_target(&self, target: PointTarget) -> crate::encoding::Point<F>;
     fn set_point_target(
         &mut self,
@@ -393,7 +393,7 @@ impl<F: RichField + Extendable<D>, const D: usize> CircuitBuilderCurve<F, D>
     }
 }
 
-impl<W: Witness<F>, F: RichField> PartialWitnessPoint<F> for W {
+impl<W: Witness<F>, F: RichField> PartialWitnessCurve<F> for W {
     fn get_point_target(&self, target: PointTarget) -> crate::encoding::Point<F> {
         crate::encoding::Point {
             x: self.get_gfp5_target(target.x),
