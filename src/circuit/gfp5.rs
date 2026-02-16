@@ -62,14 +62,7 @@ impl<F: RichField + Extendable<D>, const D: usize> CircuitBuilderGFp5<F, D>
     for CircuitBuilder<F, D>
 {
     fn add_virtual_gfp5_target(&mut self) -> GFp5Target {
-        [
-            self.add_virtual_target(),
-            self.add_virtual_target(),
-            self.add_virtual_target(),
-            self.add_virtual_target(),
-            self.add_virtual_target(),
-        ]
-        .into()
+        std::array::from_fn::<_, LEN_FIELD, _>(|_| self.add_virtual_target()).into()
     }
     fn connect_gfp5(&mut self, a: GFp5Target, b: GFp5Target) {
         for (lhs, rhs) in a.0.into_iter().zip(b.0.into_iter()) {

@@ -6,7 +6,7 @@ use plonky2::{
     plonk::circuit_builder::CircuitBuilder,
 };
 
-use crate::encoding;
+use crate::encoding::{self, LEN_STRING};
 
 type StringTarget = encoding::String<Target>;
 
@@ -27,13 +27,9 @@ impl<F: RichField + Extendable<D>, const D: usize> CircuitBuilderString<F, D>
     for CircuitBuilder<F, D>
 {
     fn add_virtual_string_target(&mut self) -> StringTarget {
-        encoding::String([
-            self.add_virtual_target(),
-            self.add_virtual_target(),
-            self.add_virtual_target(),
-            self.add_virtual_target(),
-            self.add_virtual_target(),
-        ])
+        encoding::String(std::array::from_fn::<_, LEN_STRING, _>(|_| {
+            self.add_virtual_target()
+        }))
     }
     fn register_string_public_input(&mut self, s: StringTarget) {
         for t in s.0.into_iter() {
