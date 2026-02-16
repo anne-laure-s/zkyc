@@ -7,9 +7,9 @@ use plonky2::{
     plonk::circuit_builder::CircuitBuilder,
 };
 
-use crate::arith::Scalar;
+use crate::{arith::Scalar, encoding};
 
-#[derive(Clone, Copy)]
+#[derive(Debug, Clone, Copy)]
 pub struct ScalarTarget {
     /// little endian
     pub(crate) bits: [BoolTarget; Scalar::NB_BITS],
@@ -22,9 +22,13 @@ pub trait CircuitBuilderScalar<F: RichField + Extendable<D>, const D: usize> {
     fn register_scalar_public_input(&mut self, s: ScalarTarget);
 }
 pub trait PartialWitnessScalar<F: RichField>: Witness<F> {
-    fn get_scalar_target(&self, target: ScalarTarget) -> Scalar;
+    fn get_scalar_target(&self, target: ScalarTarget) -> encoding::Scalar<bool>;
 
-    fn set_scalar_target(&mut self, target: ScalarTarget, value: Scalar) -> anyhow::Result<()>;
+    fn set_scalar_target(
+        &mut self,
+        target: ScalarTarget,
+        value: encoding::Scalar<bool>,
+    ) -> anyhow::Result<()>;
 }
 
 impl<F: RichField + Extendable<D>, const D: usize> CircuitBuilderScalar<F, D>
@@ -83,12 +87,16 @@ impl<F: RichField + Extendable<D>, const D: usize> CircuitBuilderScalar<F, D>
     }
 }
 impl<W: Witness<F>, F: RichField> PartialWitnessScalar<F> for W {
-    fn get_scalar_target(&self, target: ScalarTarget) -> Scalar {
-        Scalar::from_bits_le(&target.bits.map(|b| self.get_bool_target(b)))
+    fn get_scalar_target(&self, target: ScalarTarget) -> encoding::Scalar<bool> {
+        encoding::Scalar(target.bits.map(|b| self.get_bool_target(b)))
     }
 
-    fn set_scalar_target(&mut self, target: ScalarTarget, value: Scalar) -> anyhow::Result<()> {
-        for (&target, &value) in target.bits.iter().zip(value.to_bits_le().iter()) {
+    fn set_scalar_target(
+        &mut self,
+        target: ScalarTarget,
+        value: encoding::Scalar<bool>,
+    ) -> anyhow::Result<()> {
+        for (&target, &value) in target.bits.iter().zip(value.0.iter()) {
             self.set_bool_target(target, value)?;
         }
         Ok(())
@@ -97,6 +105,8 @@ impl<W: Witness<F>, F: RichField> PartialWitnessScalar<F> for W {
 
 #[cfg(test)]
 mod tests {
+    use crate::encoding::conversion::ToScalarField;
+
     use super::*;
     use plonky2::{
         field::{goldilocks_field::GoldilocksField as F, types::Field},
@@ -136,16 +146,22 @@ mod tests {
         let mut bits = [false; Scalar::NB_BITS];
         bits[0] = true;
         bits[5] = true;
-        let s0 = Scalar::from_bits_le(&bits);
-        pw.set_scalar_target(s_t, s0).unwrap();
+        let s0 = encoding::Scalar(bits);
+        pw.set_scalar_target(s_t, s0.clone()).unwrap();
         let got = pw.get_scalar_target(s_t);
-        assert!((got.equals(s0)) == u64::MAX)
+        for (s, g) in s0.0.iter().zip(got.0.iter()) {
+            assert!(s == g)
+        }
     }
 
     #[test]
     fn test_scalar_accepts_zero_one_modulus_minus_one() {
         // We'll reuse the same circuit shape 3 times by rebuilding (simple, reliable).
-        for scalar in [Scalar::ZERO, Scalar::ONE, (Scalar::ZERO - Scalar::ONE)] {
+        for scalar in [
+            Scalar::ZERO.to_field(),
+            Scalar::ONE.to_field(),
+            (Scalar::ZERO - Scalar::ONE).to_field(),
+        ] {
             let mut builder =
                 CircuitBuilder::<F, D>::new(CircuitConfig::standard_recursion_config());
 
@@ -153,17 +169,15 @@ mod tests {
             builder.register_scalar_public_input(s_t);
 
             let mut pw = PartialWitness::<F>::new();
-            pw.set_scalar_target(s_t, scalar).unwrap();
+            pw.set_scalar_target(s_t, scalar.clone()).unwrap();
 
             let pis = prove_and_get_public_inputs(builder, pw);
 
             // public inputs are bits as field elems
             assert_eq!(pis.len(), Scalar::NB_BITS);
 
-            let expected_bits = scalar.to_bits_le();
-
             for (i, &pi) in pis.iter().enumerate() {
-                let expected = if expected_bits[i] { F::ONE } else { F::ZERO };
+                let expected = if scalar.0[i] { F::ONE } else { F::ZERO };
                 assert_eq!(pi, expected);
             }
         }
