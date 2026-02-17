@@ -1,9 +1,8 @@
-use poseidon_hash::{Fp5Element, Goldilocks};
-
 use crate::{
-    arith::{field::GFp5, Point, Scalar},
-    schnorr::{authentification, keys::PublicKey, signature},
+    arith::{Point, Scalar},
+    schnorr::{authentification, hash, keys::PublicKey, signature},
 };
+use plonky2::field::{goldilocks_field::GoldilocksField, types::Field};
 
 pub enum Context<'a> {
     Auth(&'a authentification::Context),
@@ -18,23 +17,16 @@ impl<'a> Context<'a> {
     }
 }
 
-pub fn to_canonical_fp5_element(mut fp5: Fp5Element) -> Fp5Element {
-    for u in fp5.0.iter_mut() {
-        *u = Goldilocks::from_canonical_u64(Goldilocks::to_canonical_u64(u))
-    }
-    Fp5Element(fp5.0)
-}
-
-pub fn point_to_vec_goldilocks(x: &Point) -> Vec<Goldilocks> {
+pub fn point_to_vec_goldilocks(x: &Point) -> Vec<GoldilocksField> {
     x.encode()
         .0
         .iter()
-        .map(|x| Goldilocks::from_canonical_u64(x.to_u64()))
+        .map(|x| GoldilocksField::from_canonical_u64(x.to_u64()))
         .collect()
 }
 
 // Pack by u32 instead of u64, to avoid modulo overflow that breaks injectivity
-pub fn message_to_goldilocks(message: &[u8]) -> Vec<Goldilocks> {
+pub fn message_to_goldilocks(message: &[u8]) -> Vec<GoldilocksField> {
     let mut goldilocks_vec = Vec::with_capacity((message.len() / 4) + 1);
     let mut buffer = [0; 4];
     let mut counter = 0;
@@ -43,24 +35,10 @@ pub fn message_to_goldilocks(message: &[u8]) -> Vec<Goldilocks> {
             *b = *message.get(counter + i).unwrap_or(&0)
         }
         let u = u32::from_le_bytes(buffer);
-        goldilocks_vec.push(Goldilocks::from_canonical_u64(u as u64));
+        goldilocks_vec.push(GoldilocksField::from_canonical_u64(u as u64));
         counter += 4
     }
     goldilocks_vec
-}
-
-/// Performs poseidon on the provided message to return a scalar.
-/// Expects canonical Goldilocks.
-/// At every conversion steps, scalars & base field elements are reduced.
-/// This function is not safe for nonce generation
-pub fn poseidon_to_scalar(message: &[Goldilocks]) -> Scalar {
-    let fp5 = poseidon_hash::hash_to_quintic_extension(message);
-    let canonical_fp = to_canonical_fp5_element(fp5);
-    let (gfp5, c) = GFp5::decode(&canonical_fp.to_bytes_le());
-    if c == 0 {
-        unreachable!("decode should always success, as fp is canonical")
-    }
-    Scalar::from_gfp5(&gfp5)
 }
 
 // FIXME: Add the tag back, (was removed for simplification in the circuit)
@@ -73,20 +51,27 @@ pub fn hash(nonce: &Point, ctx: Context) -> Scalar {
     let mut f_message = Vec::new();
     match ctx {
         Context::Auth(ctx) => {
-            f_message
-                .extend_from_slice(&ctx.service().map(|x| Goldilocks::from_canonical_u64(x.0)));
-            f_message.extend_from_slice(&ctx.nonce().map(|x| Goldilocks::from_canonical_u64(x.0)));
+            f_message.extend_from_slice(
+                &ctx.service()
+                    .map(|x| GoldilocksField::from_canonical_u64(x.0)),
+            );
+            f_message.extend_from_slice(
+                &ctx.nonce()
+                    .map(|x| GoldilocksField::from_canonical_u64(x.0)),
+            );
             // Public key is already in the credential
             f_message.extend_from_slice(&point_to_vec_goldilocks(&ctx.public_key().0));
         }
         Context::Sig(ctx) => {
-            f_message
-                .extend_from_slice(&ctx.message().map(|x| Goldilocks::from_canonical_u64(x.0)));
+            f_message.extend_from_slice(
+                &ctx.message()
+                    .map(|x| GoldilocksField::from_canonical_u64(x.0)),
+            );
         }
     };
     let mut to_hash = point_to_vec_goldilocks(nonce);
     to_hash.extend_from_slice(&f_message);
-    poseidon_to_scalar(&to_hash)
+    hash::poseidon_xof_bits_native(&to_hash)
 }
 #[cfg(test)]
 mod tests {
@@ -199,21 +184,6 @@ mod tests {
         assert!(
             e1.equals(e2) == 0,
             "signature challenge must depend on the public key"
-        );
-    }
-
-    #[test]
-    fn canonicalization_is_idempotent() {
-        let msg = message_to_goldilocks(b"canonical check");
-        let fp5 = poseidon_hash::hash_to_quintic_extension(&msg);
-
-        let c1 = to_canonical_fp5_element(fp5);
-        let c2 = to_canonical_fp5_element(c1);
-
-        assert_eq!(
-            c1.to_bytes_le(),
-            c2.to_bytes_le(),
-            "canonicalization should be idempotent"
         );
     }
 }
