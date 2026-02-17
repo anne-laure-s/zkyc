@@ -77,7 +77,7 @@ impl<T: Copy, TBool: Copy> PrivateInputs<T, TBool> {
 
     pub fn to_list(&self) -> ([T; LEN_PRIVATE_INPUTS], [TBool; LEN_SCALAR]) {
         let credential: [T; LEN_CREDENTIAL] = (&self.credential).into();
-        let r: [T; LEN_POINT] = (&self.signature.r).into();
+        let r: [T; LEN_POINT] = self.signature.r.into();
         let s: [TBool; LEN_SCALAR] = self.signature.s.0;
         let mut field_elts = credential.to_vec();
         field_elts.extend_from_slice(r.as_slice());

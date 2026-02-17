@@ -73,7 +73,7 @@ impl<T: Copy> PublicInputs<T> {
 
     pub fn to_list(&self) -> [T; LEN_PUBLIC_INPUTS] {
         let mut res = vec![self.nationality, self.cutoff18_days];
-        let issuer: [T; LEN_POINT] = (&self.issuer_pk).into();
+        let issuer: [T; LEN_POINT] = self.issuer_pk.into();
         res.extend(issuer);
         // TODO: this error should not happen if the public inputs are
         // correct, but the check should be done more properly

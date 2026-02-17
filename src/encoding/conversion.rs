@@ -158,8 +158,8 @@ impl<T: Copy> From<&[T; LEN_POINT]> for Point<T> {
     }
 }
 
-impl<T: Copy> From<&Point<T>> for [T; LEN_POINT] {
-    fn from(value: &Point<T>) -> Self {
+impl<T: Copy> From<Point<T>> for [T; LEN_POINT] {
+    fn from(value: Point<T>) -> Self {
         let mut res = Vec::with_capacity(LEN_POINT);
         res.extend(value.x.0);
         res.extend(value.z.0);
@@ -181,7 +181,7 @@ impl<T: Copy> From<&Credential<T>> for [T; LEN_CREDENTIAL] {
         res.push(value.expiration_date);
         res.push(value.gender);
         res.push(value.nationality);
-        let point: [T; LEN_POINT] = (&value.issuer).into();
+        let point: [T; LEN_POINT] = value.issuer.into();
         res.extend(point);
         res.try_into()
             .unwrap_or_else(|_| panic!("Given credential don't fit the right length"))
