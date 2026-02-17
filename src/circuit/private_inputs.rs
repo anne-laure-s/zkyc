@@ -63,7 +63,7 @@ impl<F: RichField> PrivateInputs<F, bool> {
 impl<T: Copy, TBool: Copy> PrivateInputs<T, TBool> {
     fn from_list(inputs: &[T; LEN_PRIVATE_INPUTS], bool_inputs: &[TBool; LEN_SCALAR]) -> Self {
         let credential: &[T; LEN_CREDENTIAL] = &inputs[..LEN_CREDENTIAL].try_into().unwrap();
-        let r: &[T; LEN_POINT] = &inputs[LEN_CREDENTIAL..].try_into().unwrap();
+        let r: [T; LEN_POINT] = inputs[LEN_CREDENTIAL..].try_into().unwrap();
         let credential: Credential<T> = credential.into();
         let r: Point<T> = r.into();
         Self {

@@ -143,8 +143,8 @@ impl<F: RichField> From<&Point<F>> for arith::Point {
     }
 }
 
-impl<T: Copy> From<&[T; LEN_POINT]> for Point<T> {
-    fn from(value: &[T; LEN_POINT]) -> Self {
+impl<T: Copy> From<[T; LEN_POINT]> for Point<T> {
+    fn from(value: [T; LEN_POINT]) -> Self {
         let x: [T; LEN_FIELD] = value[..LEN_FIELD].try_into().unwrap();
         let z: [T; LEN_FIELD] = value[LEN_FIELD..LEN_FIELD * 2].try_into().unwrap();
         let u: [T; LEN_FIELD] = value[LEN_FIELD * 2..LEN_FIELD * 3].try_into().unwrap();
@@ -199,7 +199,7 @@ impl<T: Copy> From<&[T; LEN_CREDENTIAL]> for Credential<T> {
         let passport_number = value[LEN_STRING * 3..LEN_STRING * 3 + LEN_PASSPORT_NUMBER]
             .try_into()
             .unwrap();
-        let issuer: &[T; LEN_POINT] = &value[START_ISSUER..].try_into().unwrap();
+        let issuer: [T; LEN_POINT] = value[START_ISSUER..].try_into().unwrap();
 
         Self {
             first_name: encoding::String(first_name),
