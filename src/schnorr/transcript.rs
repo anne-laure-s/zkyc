@@ -63,14 +63,14 @@ pub fn poseidon_to_scalar(message: &[Goldilocks]) -> Scalar {
     Scalar::from_gfp5(&gfp5)
 }
 
-// TODO: check if the order is important, and if more length information are needed
-//
+// FIXME: Add the tag back, (was removed for simplification in the circuit)
 pub fn hash(nonce: &Point, ctx: Context) -> Scalar {
-    let tag = match ctx {
-        Context::Auth(_) => b"ZKYC_SCHNORR_AUT_CHALLENGE_V1",
-        Context::Sig(_) => b"ZKYC_SCHNORR_SIG_CHALLENGE_V1",
-    };
-    let mut f_message = message_to_goldilocks(tag);
+    // let tag = match ctx {
+    //     Context::Auth(_) => b"ZKYC_SCHNORR_AUT_CHALLENGE_V1",
+    //     Context::Sig(_) => b"ZKYC_SCHNORR_SIG_CHALLENGE_V1",
+    // };
+    // let mut f_message = message_to_goldilocks(tag);
+    let mut f_message = Vec::new();
     match ctx {
         Context::Auth(ctx) => {
             f_message
