@@ -22,9 +22,9 @@ pub struct Context {
 impl Context {
     /// Creates a new context. Creates a copy of public_key and takes ownership
     /// of message
-    pub fn new(public_key: &PublicKey, credential: &Credential) -> Self {
+    pub fn new(credential: &Credential) -> Self {
         Self {
-            public_key: public_key.clone(),
+            public_key: credential.issuer(),
             message: (&credential.to_field()).into(),
         }
     }
@@ -65,24 +65,30 @@ impl<F: RichField> ToSignatureField<F, bool> for Signature {
 #[cfg(test)]
 mod tests {
     use super::{Context, Signature};
-    use crate::{
-        core::credential::Credential,
-        schnorr::keys::{PublicKey, SecretKey},
-    };
+    use crate::{core::credential::Credential, schnorr::keys::SecretKey};
     use rand::{rngs::StdRng, SeedableRng};
 
-    fn keypair_and_credential_from_seed(seed: u64) -> (SecretKey, PublicKey, Credential) {
+    fn credential_from_seed(seed: u64) -> (SecretKey, Credential) {
         let mut rng = StdRng::seed_from_u64(seed);
-        let sk = SecretKey::random(&mut rng);
-        let pk = PublicKey::from(&sk);
-        let credential = Credential::random(&mut rng);
-        (sk, pk, credential)
+        let (sk, credential) = Credential::random(&mut rng);
+        (sk, credential)
+    }
+
+    fn same_credential_different_issuer(
+        seed: u64,
+    ) -> (SecretKey, Credential, SecretKey, Credential) {
+        let mut rng = StdRng::seed_from_u64(seed);
+        let (sk1, cred1) = Credential::random(&mut rng);
+        let sk2 = SecretKey::random(&mut rng);
+        let mut rng = StdRng::seed_from_u64(seed);
+        let cred2 = Credential::random_with_issuer(&sk2, &mut rng);
+        (sk1, cred1, sk2, cred2)
     }
 
     #[test]
     fn sign_then_verify_ok() {
-        let (sk, pk, credential) = keypair_and_credential_from_seed(1);
-        let ctx = Context::new(&pk, &credential);
+        let (sk, credential) = credential_from_seed(1);
+        let ctx = Context::new(&credential);
 
         let sig = Signature::sign(&sk, &ctx);
         assert!(sig.verify(&ctx));
@@ -90,28 +96,27 @@ mod tests {
 
     #[test]
     fn verify_fails_if_message_changes() {
-        let (sk, pk, credential) = keypair_and_credential_from_seed(2);
+        let (sk, mut credential) = credential_from_seed(2);
 
-        let ctx_good = Context::new(&pk, &credential);
+        let ctx_good = Context::new(&credential);
         let sig = Signature::sign(&sk, &ctx_good);
 
-        let (_sk, _pk, credential) = keypair_and_credential_from_seed(3);
+        credential.switch_names_char();
 
-        let ctx_bad = Context::new(&pk, &credential);
+        let (_sk, credential) = credential_from_seed(3);
+
+        let ctx_bad = Context::new(&credential);
         assert!(!sig.verify(&ctx_bad));
     }
 
     #[test]
     fn verify_fails_if_public_key_changes() {
-        let (sk1, pk1, credential) = keypair_and_credential_from_seed(4);
-        let (_sk2, pk2, _credential) = keypair_and_credential_from_seed(5);
+        let (sk1, cred1, _sk2, cred2) = same_credential_different_issuer(4);
 
-        let ctx1 = Context::new(&pk1, &credential);
+        let ctx1 = Context::new(&cred1);
         let sig = Signature::sign(&sk1, &ctx1);
 
-        let (_sk1, _pk1, credential) = keypair_and_credential_from_seed(4);
-
-        let ctx_other_pk = Context::new(&pk2, &credential);
+        let ctx_other_pk = Context::new(&cred2);
         assert!(!sig.verify(&ctx_other_pk));
     }
 }

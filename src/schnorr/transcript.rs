@@ -76,6 +76,8 @@ pub fn hash(nonce: &Point, ctx: Context) -> Scalar {
             f_message
                 .extend_from_slice(&ctx.service().map(|x| Goldilocks::from_canonical_u64(x.0)));
             f_message.extend_from_slice(&ctx.nonce().map(|x| Goldilocks::from_canonical_u64(x.0)));
+            // Public key is already in the credential
+            f_message.extend_from_slice(&point_to_vec_goldilocks(&ctx.public_key().0));
         }
         Context::Sig(ctx) => {
             f_message
@@ -83,7 +85,6 @@ pub fn hash(nonce: &Point, ctx: Context) -> Scalar {
         }
     };
     let mut to_hash = point_to_vec_goldilocks(nonce);
-    to_hash.extend_from_slice(&point_to_vec_goldilocks(&ctx.public_key().0));
     to_hash.extend_from_slice(&f_message);
     poseidon_to_scalar(&to_hash)
 }
@@ -109,30 +110,30 @@ mod tests {
         Point::mulgen(k)
     }
 
-    fn credential_from_seed(seed: u64) -> crate::core::credential::Credential {
+    fn sk_credential_from_seed(seed: u64) -> (SecretKey, crate::core::credential::Credential) {
         let mut rng = StdRng::seed_from_u64(seed);
         crate::core::credential::Credential::random(&mut rng)
     }
 
     fn switched_credential() -> (
+        SecretKey,
         crate::core::credential::Credential,
         crate::core::credential::Credential,
     ) {
-        let mut c2 = credential_from_seed(12345);
+        let (sk, mut c2) = sk_credential_from_seed(12345);
         let c1 = c2.clone();
         c2.switch_names_char();
-        (c1, c2)
+        (sk, c1, c2)
     }
 
     #[test]
     fn hash_injective() {
-        let pk = pk_from_seed(1);
         let r = nonce_point_from_seed(2);
 
-        let (cred1, cred2) = switched_credential();
+        let (_sk, cred1, cred2) = switched_credential();
 
-        let ctx1 = signature::Context::new(&pk, &cred1);
-        let ctx2 = signature::Context::new(&pk, &cred2);
+        let ctx1 = signature::Context::new(&cred1);
+        let ctx2 = signature::Context::new(&cred2);
 
         let e1 = hash(&r, ctx1.to_context());
         let e2 = hash(&r, ctx2.to_context());
@@ -184,10 +185,13 @@ mod tests {
             "authentification challenge must depend on the public key"
         );
 
-        let cred = credential_from_seed(4555);
+        let (_sk, cred_pk1) = sk_credential_from_seed(4555);
+        let mut cred_pk2 = cred_pk1.clone();
+        let mut rng = StdRng::seed_from_u64(556);
+        cred_pk2.switch_issuer(&mut rng);
 
-        let ctx_pk1 = signature::Context::new(&pk1, &cred);
-        let ctx_pk2 = signature::Context::new(&pk2, &cred);
+        let ctx_pk1 = signature::Context::new(&cred_pk1);
+        let ctx_pk2 = signature::Context::new(&cred_pk2);
 
         let e1 = hash(&r, ctx_pk1.to_context());
         let e2 = hash(&r, ctx_pk2.to_context());

@@ -15,19 +15,13 @@ mod tests {
     use crate::circuit::public_inputs::PublicInputs;
     use crate::circuit::{circuit, prove, verify};
     use crate::core::credential::Credential;
-    use crate::schnorr::{
-        keys::{PublicKey, SecretKey},
-        signature::Context,
-        signature::Signature,
-    };
+    use crate::schnorr::{signature::Context, signature::Signature};
 
     #[test]
     fn it_works() {
         let mut rng = StdRng::from_os_rng();
-        let credential = Credential::random(&mut rng);
-        let sk = SecretKey::random(&mut rng);
-        let pk = PublicKey::from(&sk);
-        let ctx = Context::new(&pk, &credential);
+        let (sk, credential) = Credential::random(&mut rng);
+        let ctx = Context::new(&credential);
         let signature = Signature::sign(&sk, &ctx);
         let b = signature.verify(&ctx);
         assert!(b)
@@ -36,10 +30,8 @@ mod tests {
     #[test]
     fn zk_proof() {
         let mut rng = StdRng::from_os_rng();
-        let credential = Credential::random(&mut rng);
-        let sk = SecretKey::random(&mut rng);
-        let pk = PublicKey::from(&sk);
-        let ctx = Context::new(&pk, &credential);
+        let (sk, credential) = Credential::random(&mut rng);
+        let ctx = Context::new(&credential);
         let signature = Signature::sign(&sk, &ctx);
         let circuit = circuit();
         let public_inputs = PublicInputs::new();

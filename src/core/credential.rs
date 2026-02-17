@@ -207,13 +207,16 @@ impl std::fmt::Display for FrenchPassportNumber {
 }
 
 impl Credential {
+    pub fn issuer(&self) -> PublicKey {
+        self.issuer.0.clone()
+    }
     pub fn nationality(&self) -> &Nationality {
         &self.nationality
     }
     pub fn birth_date(&self) -> &NaiveDate {
         &self.birth_date
     }
-    pub fn random(rng: &mut impl Rng) -> Self {
+    pub fn random(rng: &mut impl Rng) -> (SecretKey, Self) {
         fn generate_name(rng: &mut impl Rng) -> String {
             let len = rng.random_range(3..20);
             let mut res = String::with_capacity(len);
@@ -223,17 +226,28 @@ impl Credential {
             }
             res
         }
-        Credential {
-            first_name: Name(generate_name(rng)),
-            family_name: Name(generate_name(rng)),
-            birth_date: generate_birth_date(rng),
-            place_of_birth: Place(generate_name(rng)),
-            gender: Gender::rnd(rng),
-            nationality: Nationality::rnd(rng),
-            passport_number: PassportNumber::rnd(rng),
-            expiration_date: generate_expiration_date(rng),
-            issuer: Issuer(issuer::keys::public()),
-        }
+        let sk = SecretKey::random(rng);
+        let issuer = Issuer(PublicKey::from(&sk));
+        (
+            sk,
+            Credential {
+                first_name: Name(generate_name(rng)),
+                family_name: Name(generate_name(rng)),
+                birth_date: generate_birth_date(rng),
+                place_of_birth: Place(generate_name(rng)),
+                gender: Gender::rnd(rng),
+                nationality: Nationality::rnd(rng),
+                passport_number: PassportNumber::rnd(rng),
+                expiration_date: generate_expiration_date(rng),
+                issuer,
+            },
+        )
+    }
+    pub fn random_with_issuer(sk: &SecretKey, rng: &mut impl Rng) -> Self {
+        let (_sk, mut credential) = Self::random(rng);
+        let pk = PublicKey::from(sk);
+        credential.issuer = Issuer(pk);
+        credential
     }
     pub fn random_minor(rng: &mut impl Rng) -> Self {
         fn generate_name(rng: &mut impl Rng) -> String {
@@ -260,6 +274,12 @@ impl Credential {
     pub fn switch_names_char(&mut self) {
         let c = self.first_name.0.pop().unwrap();
         self.family_name.0.insert(0, c);
+    }
+    pub fn switch_issuer(&mut self, rng: &mut impl Rng) -> SecretKey {
+        let sk = SecretKey::random(rng);
+        let pk = PublicKey::from(&sk);
+        self.issuer = Issuer(pk);
+        sk
     }
 
     // TODO: fn new, with relevant checks (especially that everything is ascii, and not too long; dates’ year non negative (will overflow otherwise))
@@ -296,12 +316,12 @@ impl Credential {
         res
     }
 
-    pub fn sign(&self, sk: &SecretKey, pk: &PublicKey) -> Signature {
-        Signature::sign(sk, &Context::new(pk, self))
+    pub fn sign(&self, sk: &SecretKey) -> Signature {
+        Signature::sign(sk, &Context::new(self))
     }
 
-    pub fn check(&self, pk: &PublicKey, signature: &Signature) -> bool {
-        signature.verify(&Context::new(pk, self))
+    pub fn check(&self, signature: &Signature) -> bool {
+        signature.verify(&Context::new(self))
     }
 
     pub fn to_field<F: Field>(&self) -> encoding::Credential<F> {
