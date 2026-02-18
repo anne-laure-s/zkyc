@@ -132,8 +132,8 @@ impl<F: RichField> From<GFp5> for encoding::GFp5<F> {
     }
 }
 
-impl<F: RichField> From<&Point<F>> for arith::Point {
-    fn from(value: &Point<F>) -> Self {
+impl<F: RichField> From<Point<F>> for arith::Point {
+    fn from(value: Point<F>) -> Self {
         Self {
             X: value.x.into(),
             Z: value.z.into(),
