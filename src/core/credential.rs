@@ -10,7 +10,7 @@ use crate::{
     },
     encoding::{
         self,
-        conversion::{ToField, ToPointField, ToSingleField, ToVecField},
+        conversion::{ToBool, ToField, ToPointField, ToSingleField, ToVecField},
         LEN_PASSPORT_NUMBER, LEN_STRING,
     },
     issuer,
@@ -64,11 +64,11 @@ enum PassportNumber {
 #[derive(Debug, Clone)]
 struct FrenchPassportNumber([u8; 9]);
 
-impl<F: Field> ToSingleField<F> for Gender {
-    fn to_field(&self) -> F {
+impl ToBool<bool> for Gender {
+    fn to_bool(&self) -> bool {
         match self {
-            Self::M => F::ZERO,
-            Self::F => F::ONE,
+            Self::M => false,
+            Self::F => true,
         }
     }
 }
@@ -324,13 +324,13 @@ impl Credential {
         signature.verify(&Context::new(self))
     }
 
-    pub fn to_field<F: Field>(&self) -> encoding::Credential<F> {
+    pub fn to_field<F: Field>(&self) -> encoding::Credential<F, bool> {
         encoding::Credential {
             first_name: encoding::String(self.first_name.0.to_field()),
             family_name: encoding::String(self.family_name.0.to_field()),
             birth_date: self.birth_date.to_field(),
             place_of_birth: encoding::String(self.place_of_birth.0.to_field()),
-            gender: self.gender.to_field(),
+            gender: self.gender.to_bool(),
             nationality: self.nationality.to_field(),
             passport_number: encoding::PassportNumber(self.passport_number.to_field()),
             expiration_date: self.expiration_date.to_field(),

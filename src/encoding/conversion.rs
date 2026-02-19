@@ -12,6 +12,34 @@ use crate::{
     },
 };
 
+pub trait ToBool<TBool> {
+    fn to_bool(&self) -> TBool;
+}
+impl<F: Field> ToBool<bool> for F {
+    fn to_bool(&self) -> bool {
+        if self.is_zero() {
+            false
+        } else if self.is_one() {
+            true
+        } else {
+            panic!("boolean conversion failed")
+        }
+    }
+}
+pub trait FromBool<T> {
+    fn from_bool(self) -> T;
+}
+
+impl<F: Field> FromBool<F> for bool {
+    fn from_bool(self) -> F {
+        if self {
+            F::ONE
+        } else {
+            F::ZERO
+        }
+    }
+}
+
 pub trait ToField<F: Field, const N: usize> {
     fn to_field(&self) -> [F; N];
 }
@@ -170,8 +198,8 @@ impl<T: Copy> From<Point<T>> for [T; LEN_POINT] {
     }
 }
 
-impl<T: Copy> From<&Credential<T>> for [T; LEN_CREDENTIAL] {
-    fn from(value: &Credential<T>) -> Self {
+impl<T: Copy, TBool: Copy + FromBool<T>> From<&Credential<T, TBool>> for [T; LEN_CREDENTIAL] {
+    fn from(value: &Credential<T, TBool>) -> Self {
         let mut res = Vec::with_capacity(LEN_CREDENTIAL);
         res.extend(value.first_name.0);
         res.extend(value.family_name.0);
@@ -179,7 +207,7 @@ impl<T: Copy> From<&Credential<T>> for [T; LEN_CREDENTIAL] {
         res.extend(value.passport_number.0);
         res.push(value.birth_date);
         res.push(value.expiration_date);
-        res.push(value.gender);
+        res.push(value.gender.from_bool());
         res.push(value.nationality);
         let point: [T; LEN_POINT] = value.issuer.into();
         res.extend(point);
@@ -190,7 +218,7 @@ impl<T: Copy> From<&Credential<T>> for [T; LEN_CREDENTIAL] {
 
 const POS_BIRTH_DATE: usize = LEN_STRING * 3 + LEN_PASSPORT_NUMBER;
 const START_ISSUER: usize = POS_BIRTH_DATE + 4;
-impl<T: Copy> From<&[T; LEN_CREDENTIAL]> for Credential<T> {
+impl<T: Copy + ToBool<TBool>, TBool: Copy> From<&[T; LEN_CREDENTIAL]> for Credential<T, TBool> {
     fn from(value: &[T; LEN_CREDENTIAL]) -> Self {
         let first_name: [T; LEN_STRING] = value[0..LEN_STRING].try_into().unwrap();
         let family_name: [T; LEN_STRING] = value[LEN_STRING..LEN_STRING * 2].try_into().unwrap();
@@ -208,7 +236,7 @@ impl<T: Copy> From<&[T; LEN_CREDENTIAL]> for Credential<T> {
             passport_number: encoding::PassportNumber(passport_number),
             birth_date: value[POS_BIRTH_DATE],
             expiration_date: value[POS_BIRTH_DATE + 1],
-            gender: value[POS_BIRTH_DATE + 2],
+            gender: value[POS_BIRTH_DATE + 2].to_bool(),
             nationality: value[POS_BIRTH_DATE + 3],
             issuer: issuer.into(),
         }

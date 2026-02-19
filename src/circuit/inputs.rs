@@ -29,7 +29,7 @@ pub struct Public<T> {
     pub(crate) issuer_pk: Point<T>,
 }
 pub(crate) struct Private<T, TBool> {
-    pub(crate) credential: Credential<T>,
+    pub(crate) credential: Credential<T, TBool>,
     pub(crate) signature: Signature<T, TBool>,
 }
 
@@ -85,7 +85,7 @@ impl<F: RichField> Private<F, bool> {
                 targets.credential.expiration_date,
                 self.credential.expiration_date,
             )?;
-            pw.set_target(targets.credential.gender, self.credential.gender)?;
+            pw.set_bool_target(targets.credential.gender, self.credential.gender)?;
         }
         // signature
         {
