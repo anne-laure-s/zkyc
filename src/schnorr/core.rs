@@ -17,8 +17,8 @@ use crate::{
 
 // TODO: faire de la signature une schnorr proof plutôt que l’inverse
 pub struct SchnorrProof {
-    r: Point,
-    s: Scalar,
+    pub r: Point,
+    pub s: Scalar,
 }
 
 impl SchnorrProof {
