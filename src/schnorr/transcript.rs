@@ -1,5 +1,6 @@
 use crate::{
     arith::{Point, Scalar},
+    encoding::{conversion::ToPointField, LEN_POINT},
     schnorr::{authentification, hash, keys::PublicKey, signature},
 };
 use plonky2::field::{goldilocks_field::GoldilocksField, types::Field};
@@ -17,12 +18,9 @@ impl<'a> Context<'a> {
     }
 }
 
-pub fn point_to_vec_goldilocks(x: &Point) -> Vec<GoldilocksField> {
-    x.encode()
-        .0
-        .iter()
-        .map(|x| GoldilocksField::from_canonical_u64(x.to_u64()))
-        .collect()
+pub fn point_to_vec_goldilocks(x: &Point) -> [GoldilocksField; LEN_POINT] {
+    // TODO: Use encode ?
+    x.to_field().into()
 }
 
 // Pack by u32 instead of u64, to avoid modulo overflow that breaks injectivity
@@ -69,7 +67,7 @@ pub fn hash(nonce: &Point, ctx: Context) -> Scalar {
             );
         }
     };
-    let mut to_hash = point_to_vec_goldilocks(nonce);
+    let mut to_hash = point_to_vec_goldilocks(nonce).to_vec();
     to_hash.extend_from_slice(&f_message);
     hash::poseidon_xof_bits_native(&to_hash)
 }
