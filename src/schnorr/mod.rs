@@ -3,4 +3,4 @@ mod core;
 pub mod hash;
 pub mod keys;
 pub mod signature;
-mod transcript;
+pub mod transcript;
