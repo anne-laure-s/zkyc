@@ -71,6 +71,13 @@ impl Builder {
             .range_check(self.private_inputs.credential.birth_date, 32);
         self.builder.range_check(diff, 32);
     }
+
+    pub(crate) fn check_signature(&mut self) {
+        self.builder.verify(
+            &self.private_inputs.credential,
+            &self.private_inputs.signature,
+        )
+    }
 }
 
 /// Prove that client knows a credential such that:
@@ -81,6 +88,7 @@ impl Builder {
 pub fn circuit() -> Circuit {
     let mut builder = Builder::setup();
     builder.check_majority();
+    builder.check_signature();
     builder.build()
 }
 
