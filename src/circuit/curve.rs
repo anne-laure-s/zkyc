@@ -42,6 +42,10 @@ pub trait CircuitBuilderCurve<F: RichField + Extendable<D>, const D: usize> {
     fn register_point_public_input(&mut self, p: PointTarget);
     fn assert_on_curve(&mut self, p: PointTarget);
     fn zero_point(&mut self) -> PointTarget;
+    /// This function asserts that a and b have the same coordinate,
+    /// but it is possible that different coordinate represent the same point
+    /// Generally, use `is_equal_point` to compare to points, and only use
+    /// `connect_point` when a and b are expected to have the same coordinates
     fn connect_point(&mut self, a: PointTarget, b: PointTarget);
     fn is_equal_point(&mut self, a: PointTarget, b: PointTarget) -> BoolTarget;
     fn add_point(&mut self, p: PointTarget, q: PointTarget) -> PointTarget;
@@ -90,11 +94,13 @@ impl<F: RichField + Extendable<D>, const D: usize> CircuitBuilderCurve<F, D>
     }
 
     fn zero_point(&mut self) -> PointTarget {
+        let zero = self.zero_gfp5();
+        let one = self.one_gfp5();
         PointTarget {
-            x: self.zero_gfp5(),
-            z: self.one_gfp5(),
-            u: self.zero_gfp5(),
-            t: self.one_gfp5(),
+            x: zero,
+            z: one,
+            u: zero,
+            t: one,
         }
     }
 
@@ -325,40 +331,34 @@ impl<F: RichField + Extendable<D>, const D: usize> CircuitBuilderCurve<F, D>
         e: ScalarTarget,
         p: PointTarget,
     ) -> PointTarget {
-        let s_bits_le = s.0;
-        let e_bits_le = e.0;
-        let n = s_bits_le.len().max(e_bits_le.len());
-
         let g = self.generator();
-
-        let o = self.zero_point();
         let gp = self.add_point(g, p);
+        let zero = self.zero_point();
 
-        let mut acc = self.zero_point();
+        let mut acc = zero;
 
-        for i in (0..n).rev() {
+        for i in (0..crate::arith::Scalar::NB_BITS).rev() {
+            // acc = 2*acc
             acc = self.double_point(acc);
 
-            let sb = if i < s_bits_le.len() {
-                s_bits_le[i]
-            } else {
-                self._false()
-            };
-            let eb = if i < e_bits_le.len() {
-                e_bits_le[i]
-            } else {
-                self._false()
-            };
+            let sb = s.0[i];
+            let eb = e.0[i];
 
-            // 00 -> O
-            // 01 -> P
-            // 10 -> G
-            // 11 -> G+P
-            let t_sb0 = self.select_point(eb, p, o); // eb ? P : O
-            let t_sb1 = self.select_point(eb, gp, g); // eb ? G+P : G
-            let to_add = self.select_point(sb, t_sb1, t_sb0);
+            // term = (sb,eb) ? {00:0, 10:g, 01:p, 11:g+p}
+            let sb_and_eb = self.and(sb, eb);
+            let not_eb = self.not(eb);
+            let not_sb = self.not(sb);
+            let sb_only = self.and(sb, not_eb);
+            let eb_only = self.and(eb, not_sb);
 
-            acc = self.add_point(acc, to_add);
+            // Select term with mutually exclusive booleans
+            let mut term = zero;
+            term = self.select_point(eb_only, p, term);
+            term = self.select_point(sb_only, g, term);
+            term = self.select_point(sb_and_eb, gp, term);
+
+            // acc += term
+            acc = self.add_point(acc, term);
         }
 
         acc
@@ -379,7 +379,9 @@ impl<F: RichField + Extendable<D>, const D: usize> CircuitBuilderCurve<F, D>
         let lhs = self.double_scalar_mul_shamir(s, e, pk_neg);
 
         // lhs must equal R
-        self.connect_point(lhs, r);
+        let res = self.is_equal_point(lhs, r);
+
+        self.assert_one(res.target);
     }
 
     fn constant_point_unsafe(
@@ -395,6 +397,25 @@ impl<F: RichField + Extendable<D>, const D: usize> CircuitBuilderCurve<F, D>
             u: self.constant_gfp5(u),
             t: self.constant_gfp5(t),
         }
+    }
+    // Note: this function is not needed for the project, but is implemented for debugging purposes
+    fn scalar_mul(
+        &mut self,
+        base: PointTarget,
+        s: ScalarTarget, // bits little-endian: s.0[i] = bit i
+    ) -> PointTarget {
+        let mut acc = self.zero_point();
+
+        // MSB -> LSB
+        for i in (0..crate::arith::Scalar::NB_BITS).rev() {
+            acc = self.double_point(acc);
+
+            // if bit=1 then acc += base else acc unchanged
+            let acc_plus = self.add_point(acc, base);
+            acc = self.select_point(s.0[i], acc_plus, acc);
+        }
+
+        acc
     }
 }
 
@@ -422,7 +443,15 @@ impl<W: Witness<F>, F: RichField> PartialWitnessCurve<F> for W {
 }
 
 #[cfg(test)]
-mod tests {
+pub(crate) mod tests {
+
+    use crate::{
+        circuit::scalar::CircuitBuilderScalar,
+        encoding::{
+            conversion::{ToPointField, ToScalarField},
+            Scalar, LEN_POINT, LEN_SCALAR,
+        },
+    };
 
     use super::*;
     use plonky2::{
@@ -746,6 +775,38 @@ mod tests {
         let _pis = prove_and_get_public_inputs(builder, PartialWitness::<F>::new());
     }
 
+    /// Verify that negating a point twice yields the original point and that
+    /// adding a point to its negation returns the group identity. This test
+    /// exercises the circuit implementation of `neg_point`, `add_point` and
+    /// `is_zero_point`.
+    #[test]
+    fn test_neg_point_properties_circuit() {
+        use crate::circuit::curve::CircuitBuilderCurve;
+
+        // Build a small circuit with no recursion.
+        let mut builder = CircuitBuilder::<F, D>::new(CircuitConfig::default());
+
+        // Use the group generator as a non-trivial test point.
+        let g = builder.generator();
+        // Compute its negation.
+        let neg_g = builder.neg_point(g);
+        // Sum g + (-g).
+        let sum = builder.add_point(g, neg_g);
+        // Check that g + (-g) is the neutral element by asserting u == 0.
+        let is_zero = builder.is_zero_point(sum);
+        builder.assert_one(is_zero.target);
+        // Check that negating twice yields the original point.
+        let neg_neg_g = builder.neg_point(neg_g);
+        // Points are equal if both x/z and u/t ratios match. Use is_equal_point.
+        let eq = builder.is_equal_point(g, neg_neg_g);
+        builder.assert_one(eq.target);
+        // Build and prove. There is no witness because all points are constants.
+        let data = builder.build::<Cfg>();
+        let proof = data
+            .prove(PartialWitness::<F>::new())
+            .expect("prove should succeed");
+        data.verify(proof).expect("verify should succeed");
+    }
     #[test]
     fn test_assert_on_curve_accepts_native_points() {
         let mut builder = CircuitBuilder::<F, D>::new(CircuitConfig::standard_recursion_config());
@@ -774,6 +835,37 @@ mod tests {
         let _pis = prove_and_get_public_inputs(builder, PartialWitness::<F>::new());
     }
 
+    /// Ensure that the circuit addition of two points matches the off-circuit
+    /// addition formula. We use G and 2*G as inputs and expect 3*G as the sum.
+    #[test]
+    fn test_add_point_matches_native() {
+        use crate::arith::curve::Point as ArithPoint;
+        use crate::circuit::curve::CircuitBuilderCurve;
+
+        // Native points: G, 2G and 3G.
+        let g_native = ArithPoint::GENERATOR;
+        let g2_native = g_native.double();
+        let g3_native = g2_native + g_native;
+
+        let g_field = g_native.to_field();
+        let g2_field = g2_native.to_field();
+        let g3_field = g3_native.to_field();
+
+        let mut builder = CircuitBuilder::<F, D>::new(CircuitConfig::default());
+        // Allocate constants in the circuit.
+        let g_t = builder.constant_point_unsafe(g_field.x, g_field.z, g_field.u, g_field.t);
+        let g2_t = builder.constant_point_unsafe(g2_field.x, g2_field.z, g2_field.u, g2_field.t);
+        let expected_t =
+            builder.constant_point_unsafe(g3_field.x, g3_field.z, g3_field.u, g3_field.t);
+        // Compute g + 2g in circuit.
+        let res = builder.add_point(g_t, g2_t);
+        builder.connect_point(res, expected_t);
+        let data = builder.build::<Cfg>();
+        let proof = data
+            .prove(PartialWitness::<F>::new())
+            .expect("proof should succeed");
+        data.verify(proof).expect("verify should succeed");
+    }
     #[test]
     fn test_assert_on_curve_rejects_tampered_x() {
         let mut builder = CircuitBuilder::<F, D>::new(CircuitConfig::standard_recursion_config());
@@ -859,5 +951,293 @@ mod tests {
         assert_eq!(&pis[5..10], v.z.0.as_slice());
         assert_eq!(&pis[10..15], v.u.0.as_slice());
         assert_eq!(&pis[15..20], v.t.0.as_slice());
+    }
+    #[test]
+    fn test_double_point_matches_native_on_generator() {
+        use crate::arith::curve::Point as ArithPoint;
+        use crate::circuit::curve::CircuitBuilderCurve;
+        use crate::encoding::{Point as EncPoint, LEN_POINT};
+
+        let expected = ArithPoint::GENERATOR.double().to_field();
+
+        let mut builder = CircuitBuilder::<F, D>::new(CircuitConfig::default());
+        let g = builder.generator();
+        let g2 = builder.double_point(g);
+        builder.register_point_public_input(g2);
+
+        let data = builder.build::<Cfg>();
+        let proof = data.prove(PartialWitness::<F>::new()).unwrap();
+        data.verify(proof.clone()).unwrap();
+
+        let pi: [F; LEN_POINT] = proof.public_inputs[..LEN_POINT].try_into().unwrap();
+        let got: EncPoint<F> = pi.into();
+
+        for i in 0..5 {
+            assert_eq!(got.x.0[i], expected.x.0[i], "X limb {i}");
+            assert_eq!(got.z.0[i], expected.z.0[i], "Z limb {i}");
+            assert_eq!(got.u.0[i], expected.u.0[i], "U limb {i}");
+            assert_eq!(got.t.0[i], expected.t.0[i], "T limb {i}");
+        }
+    }
+
+    fn u64_to_scalar(x: u64) -> crate::arith::Scalar {
+        let bits: [bool; LEN_SCALAR] =
+            std::array::from_fn(|i| if i < 64 { ((x >> i) & 1) == 1 } else { false });
+        crate::arith::Scalar::from_bits_le(&bits)
+    }
+
+    #[test]
+    fn test_generator_matches_native() {
+        use crate::arith::curve::Point as ArithPoint;
+        use crate::circuit::curve::CircuitBuilderCurve;
+        use crate::encoding::{Point as EncPoint, LEN_POINT};
+
+        let expected = ArithPoint::GENERATOR.to_field();
+
+        let mut builder = CircuitBuilder::<F, D>::new(CircuitConfig::default());
+        let g = builder.generator();
+        builder.register_point_public_input(g);
+
+        let data = builder.build::<Cfg>();
+        let proof = data.prove(PartialWitness::<F>::new()).unwrap();
+        data.verify(proof.clone()).unwrap();
+
+        let pi: [F; LEN_POINT] = proof.public_inputs[..LEN_POINT].try_into().unwrap();
+        let got: EncPoint<F> = pi.into();
+
+        for i in 0..5 {
+            assert_eq!(got.x.0[i], expected.x.0[i], "X limb {i}");
+            assert_eq!(got.z.0[i], expected.z.0[i], "Z limb {i}");
+            assert_eq!(got.u.0[i], expected.u.0[i], "U limb {i}");
+            assert_eq!(got.t.0[i], expected.t.0[i], "T limb {i}");
+        }
+    }
+    #[test]
+    fn test_double_scalar_mul_shamir_matches_native() {
+        use crate::arith::curve::Point as ArithPoint;
+        use crate::circuit::curve::CircuitBuilderCurve;
+        use crate::circuit::scalar::PartialWitnessScalar;
+
+        let s_native = u64_to_scalar(3);
+        let e_native = u64_to_scalar(5);
+
+        let pk_native = ArithPoint::GENERATOR.double();
+
+        let expected = ArithPoint::mulgen(s_native) + (pk_native * e_native);
+
+        // IMPORTANT: encode pk through the same to_field() path as expected_field
+        let pk_field = pk_native.to_field();
+
+        let mut builder = CircuitBuilder::<F, D>::new(CircuitConfig::default());
+
+        let pk_t = builder.constant_point_unsafe(pk_field.x, pk_field.z, pk_field.u, pk_field.t);
+
+        let s_t = builder.add_virtual_scalar_target();
+        let e_t = builder.add_virtual_scalar_target();
+
+        let res = builder.double_scalar_mul_shamir(s_t, e_t, pk_t);
+
+        // Expose res
+        builder.register_point_public_input(res);
+
+        let mut pw = PartialWitness::<F>::new();
+        pw.set_scalar_target(s_t, s_native.to_field())
+            .expect("set s bits");
+        pw.set_scalar_target(e_t, e_native.to_field())
+            .expect("set e bits");
+
+        let data = builder.build::<Cfg>();
+        let proof = data.prove(pw).expect("proof should succeed");
+        data.verify(proof.clone()).expect("verify should succeed");
+
+        check_public_input_point(&proof.public_inputs, expected);
+    }
+    #[test]
+    fn test_shamir_reduces_to_mulgen_when_e_is_zero() {
+        use crate::arith::curve::Point as ArithPoint;
+        use crate::circuit::curve::CircuitBuilderCurve;
+        use crate::circuit::scalar::PartialWitnessScalar;
+
+        let s_native = u64_to_scalar(3);
+        let e_native = u64_to_scalar(0);
+
+        // pk can be anything when e=0
+        let pk_native = ArithPoint::GENERATOR.double();
+        let pk_field = pk_native.to_field();
+
+        let expected = ArithPoint::mulgen(s_native);
+
+        let mut builder = CircuitBuilder::<F, D>::new(CircuitConfig::default());
+
+        let pk_t = builder.constant_point_unsafe(pk_field.x, pk_field.z, pk_field.u, pk_field.t);
+        let s_t = builder.add_virtual_scalar_target();
+        let e_t = builder.add_virtual_scalar_target();
+
+        let res = builder.double_scalar_mul_shamir(s_t, e_t, pk_t);
+        builder.register_point_public_input(res);
+
+        let mut pw = PartialWitness::<F>::new();
+        pw.set_scalar_target(s_t, s_native.to_field()).unwrap();
+        pw.set_scalar_target(e_t, e_native.to_field()).unwrap();
+
+        let data = builder.build::<Cfg>();
+        let proof = data.prove(pw).unwrap();
+        data.verify(proof.clone()).unwrap();
+
+        check_public_input_point(&proof.public_inputs, expected);
+    }
+
+    /// Randomly sample small scalar values and verify that the circuit’s
+    /// double-scalar multiplication via Shamir’s trick matches a naive
+    /// off-circuit computation of s*G + e*P.  This helps detect any
+    /// discrepancy in bit order, window handling, or point operations.
+    #[test]
+    fn test_double_scalar_mul_shamir_random_samples() {
+        use crate::arith::curve::Point as ArithPoint;
+        use crate::circuit::curve::CircuitBuilderCurve;
+        use crate::circuit::scalar::PartialWitnessScalar;
+        use crate::encoding::conversion::ToPointField;
+
+        // Choose a fixed public key for all samples: 7*G is arbitrary and non-trivial.
+        let pk_native = ArithPoint::mulgen(u64_to_scalar(7));
+        // Convert pk to field representation.
+        let pk_field = pk_native.to_field();
+
+        // Test a handful of scalar pairs.  We limit the range to keep tests fast.
+        let scalar_pairs: &[(u64, u64)] = &[(0, 0), (1, 1), (2, 3), (5, 4), (7, 9)];
+
+        for &(s_u64, e_u64) in scalar_pairs {
+            let mut builder = CircuitBuilder::<F, D>::new(CircuitConfig::default());
+            // Allocate pk as a constant point in the circuit.
+            let pk_t =
+                builder.constant_point_unsafe(pk_field.x, pk_field.z, pk_field.u, pk_field.t);
+
+            // Allocate scalar targets for s and e.
+            let s_t = builder.add_virtual_scalar_target();
+            let e_t = builder.add_virtual_scalar_target();
+            // Compute s*G + e*pk via the circuit.
+            let res = builder.double_scalar_mul_shamir(s_t, e_t, pk_t);
+
+            // Compute the expected result natively.
+            let s_native = u64_to_scalar(s_u64);
+            let e_native = u64_to_scalar(e_u64);
+            let expected_native = ArithPoint::mulgen(s_native) + (pk_native * e_native);
+            let expected_field = expected_native.to_field();
+            // Allocate the expected point as a constant.
+            let expected_t = builder.constant_point_unsafe(
+                expected_field.x,
+                expected_field.z,
+                expected_field.u,
+                expected_field.t,
+            );
+            // Constrain the circuit result to equal the expected constant.
+            let res = builder.is_equal_point(res, expected_t);
+            builder.assert_one(res.target);
+
+            // Build the circuit and set witnesses for s and e.
+            let mut pw = PartialWitness::<F>::new();
+            pw.set_scalar_target(s_t, s_native.to_field())
+                .expect("set s bits");
+            pw.set_scalar_target(e_t, e_native.to_field())
+                .expect("set e bits");
+            let data = builder.build::<Cfg>();
+            let proof = data.prove(pw).expect("proof should succeed");
+            data.verify(proof).expect("verify should succeed");
+        }
+    }
+
+    fn prove_scalar_mul(base: crate::arith::curve::Point, k: u64, expected: crate::arith::Point) {
+        let mut builder = CircuitBuilder::<F, D>::new(CircuitConfig::default());
+
+        let base_t = builder.add_virtual_point_target();
+
+        let bits_bools = u64_to_scalar(k).to_bits_le();
+
+        // bits constants dans le circuit (on veut tester la logique, pas le split)
+        let bits_t: [_; LEN_SCALAR] = bits_bools.map(|b| builder.constant_bool(b));
+
+        let out_t = builder.scalar_mul(base_t, Scalar(bits_t));
+
+        builder.register_point_public_input(out_t);
+
+        let data = builder.build::<Cfg>();
+
+        let mut pw = PartialWitness::new();
+        pw.set_point_target(base_t, base.to_field()).unwrap();
+
+        let proof = data.prove(pw).unwrap();
+        check_public_input_point(&proof.public_inputs, expected)
+    }
+
+    pub fn check_public_input_point(pi: &[F], expected: crate::arith::Point) {
+        let pi: [F; LEN_POINT] = pi[..LEN_POINT].try_into().unwrap();
+        let got: crate::encoding::Point<F> = pi.into();
+        let got: crate::arith::Point = got.into();
+        if got.U.iszero() == u64::MAX && expected.U.iszero() == u64::MAX {
+            return;
+        };
+        assert_eq!(
+            (got.X * expected.Z).equals(expected.X * got.Z),
+            u64::MAX,
+            "x mismatch (X/Z)"
+        );
+        assert_eq!(
+            (got.U * expected.T).equals(expected.U * got.T),
+            u64::MAX,
+            "u mismatch (U/T)"
+        );
+    }
+
+    #[test]
+    fn test_scalar_mul_zero_is_neutral() {
+        let base = crate::arith::curve::Point::GENERATOR;
+        prove_scalar_mul(base, 0, crate::arith::curve::Point::NEUTRAL)
+    }
+
+    #[test]
+    fn test_scalar_mul_one_is_identity() {
+        let base = crate::arith::curve::Point::GENERATOR;
+        prove_scalar_mul(base, 1, base)
+    }
+
+    #[test]
+    fn test_scalar_mul_two_is_double() {
+        let base = crate::arith::curve::Point::GENERATOR;
+        prove_scalar_mul(base, 2, base.double())
+    }
+
+    #[test]
+    fn test_scalar_mul_small_scalars_match_native() {
+        let base = crate::arith::curve::Point::GENERATOR;
+        let ks: [u64; 14] = [0, 1, 2, 3, 4, 5, 7, 8, 9, 11, 15, 16, 17, 31];
+        for &k in &ks {
+            prove_scalar_mul(base, k, base * u64_to_scalar(k));
+        }
+    }
+
+    #[test]
+    fn test_scalar_mul_powers_of_two_are_repeated_doubles() {
+        let base = crate::arith::curve::Point::GENERATOR;
+        for i in 0..10 {
+            let k = 1u64 << i;
+            let mut expected = base;
+            for _ in 0..i {
+                expected = expected.double();
+            }
+            prove_scalar_mul(base, k, expected);
+        }
+    }
+
+    #[test]
+    fn test_scalar_mul_distributive_on_small_scalars() {
+        // (a+b)P == aP + bP
+        let base = crate::arith::curve::Point::GENERATOR;
+        let pairs = [(3u64, 5u64), (7, 9), (1, 15), (12, 4)];
+        for (a, b) in pairs {
+            let pa = base * (u64_to_scalar(a));
+            let pb = base * (u64_to_scalar(b));
+            let expected = pa + pb;
+            prove_scalar_mul(base, a + b, expected)
+        }
     }
 }
