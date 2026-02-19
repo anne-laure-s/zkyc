@@ -18,8 +18,8 @@ pub type CredentialTarget = Credential<Target>;
 
 pub trait CircuitBuilderCredential<F: RichField + Extendable<D>, const D: usize> {
     fn add_virtual_credential_target(&mut self) -> CredentialTarget;
-    /// Registers issuer as public_input
-    fn register_issuer_public_input(&mut self, c: CredentialTarget);
+    /// Registers nationnality and issuer as public_input
+    fn register_credential_public_input(&mut self, c: CredentialTarget);
 }
 pub trait PartialWitnessCredential<F: RichField>: Witness<F> {
     fn get_credential_target(&self, target: CredentialTarget) -> Credential<F>;
@@ -34,7 +34,6 @@ impl<F: RichField + Extendable<D>, const D: usize> CircuitBuilderCredential<F, D
     for CircuitBuilder<F, D>
 {
     fn add_virtual_credential_target(&mut self) -> CredentialTarget {
-        let gender = self.add_virtual_bool_target_safe();
         CredentialTarget {
             first_name: self.add_virtual_string_target(),
             family_name: self.add_virtual_string_target(),
@@ -42,12 +41,13 @@ impl<F: RichField + Extendable<D>, const D: usize> CircuitBuilderCredential<F, D
             passport_number: self.add_virtual_passport_number_target(),
             birth_date: self.add_virtual_target(),
             expiration_date: self.add_virtual_target(),
-            gender: gender.target,
+            gender: self.add_virtual_bool_target_safe().target, // TODO: make gender a BoolTarget
             nationality: self.add_virtual_target(),
             issuer: self.add_virtual_point_target(),
         }
     }
-    fn register_issuer_public_input(&mut self, c: CredentialTarget) {
+    fn register_credential_public_input(&mut self, c: CredentialTarget) {
+        self.register_public_input(c.nationality);
         self.register_point_public_input(c.issuer);
     }
 }

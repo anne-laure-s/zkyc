@@ -10,11 +10,9 @@ use plonky2::{
 
 use crate::{
     circuit::{
-        curve::{CircuitBuilderCurve, PartialWitnessCurve},
-        passport_number::{CircuitBuilderPassportNumber, PartialWitnessPassportNumber},
-        scalar::PartialWitnessScalar,
-        signature::CircuitBuilderSignature,
-        string::{CircuitBuilderString, PartialWitnessString},
+        credential::CircuitBuilderCredential, curve::PartialWitnessCurve,
+        passport_number::PartialWitnessPassportNumber, scalar::PartialWitnessScalar,
+        signature::CircuitBuilderSignature, string::PartialWitnessString,
     },
     core::{credential::Nationality, date::cutoff18_from_today_for_tests},
     encoding::{
@@ -46,19 +44,8 @@ pub const LEN_PRIVATE_INPUTS: usize = LEN_CREDENTIAL + LEN_POINT;
 pub fn register<F: RichField + Extendable<D>, const D: usize>(
     builder: &mut CircuitBuilder<F, D>,
 ) -> (Public<Target>, Private<Target, BoolTarget>) {
-    let credential = Credential {
-        first_name: builder.add_virtual_string_target(),
-        family_name: builder.add_virtual_string_target(),
-        place_of_birth: builder.add_virtual_string_target(),
-        passport_number: builder.add_virtual_passport_number_target(),
-        birth_date: builder.add_virtual_target(),
-        expiration_date: builder.add_virtual_target(),
-        gender: builder.add_virtual_bool_target_safe().target, // TODO: make gender a booltarget
-        nationality: builder.add_virtual_target(),
-        issuer: builder.add_virtual_point_target(),
-    };
-    builder.register_public_input(credential.nationality);
-    builder.register_point_public_input(credential.issuer);
+    let credential = builder.add_virtual_credential_target();
+    builder.register_credential_public_input(credential);
     let signature = builder.add_virtual_signature_target();
     let cutoff18_days = builder.add_virtual_target();
     builder.register_public_input(cutoff18_days);

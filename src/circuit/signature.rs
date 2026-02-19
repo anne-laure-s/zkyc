@@ -234,7 +234,7 @@ mod tests {
         let credential_t = builder.add_virtual_credential_target();
         let signature_t = builder.add_virtual_signature_target();
 
-        builder.register_issuer_public_input(credential_t);
+        builder.register_point_public_input(credential_t.issuer);
 
         builder.verify(&credential_t, &signature_t);
 
