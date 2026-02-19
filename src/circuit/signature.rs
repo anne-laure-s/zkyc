@@ -15,7 +15,7 @@ use plonky2::{
 use crate::{
     circuit::{
         credential::CredentialTarget,
-        curve::{CircuitBuilderCurve, PartialWitnessCurve, PointTarget},
+        curve::{CircuitBuilderCurve, PartialWitnessCurve},
         scalar::{CircuitBuilderScalar, PartialWitnessScalar, ScalarTarget},
     },
     encoding::{Signature, LEN_CREDENTIAL, LEN_POINT, LEN_SCALAR},
