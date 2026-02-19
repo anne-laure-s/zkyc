@@ -16,11 +16,15 @@ use crate::circuit::public_inputs::PublicInputs;
 use crate::core::credential::Credential;
 use crate::schnorr::signature::Signature;
 
+pub(crate) mod credential;
 pub(crate) mod curve;
 pub(crate) mod gfp5;
+pub(crate) mod passport_number;
 pub(crate) mod private_inputs;
 pub(crate) mod public_inputs;
 pub(crate) mod scalar;
+pub(crate) mod signature;
+pub(crate) mod string;
 
 const D: usize = 2;
 type C = PoseidonGoldilocksConfig;
