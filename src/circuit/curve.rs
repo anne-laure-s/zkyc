@@ -46,6 +46,7 @@ pub trait CircuitBuilderCurve<F: RichField + Extendable<D>, const D: usize> {
     fn is_equal_point(&mut self, a: PointTarget, b: PointTarget) -> BoolTarget;
     fn add_point(&mut self, p: PointTarget, q: PointTarget) -> PointTarget;
     fn double_point(&mut self, p: PointTarget) -> PointTarget;
+    fn scalar_mul(&mut self, p: PointTarget, s: ScalarTarget) -> PointTarget;
     fn constant_point_unsafe(
         &mut self,
         x: GFp5<F>,
