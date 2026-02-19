@@ -11,17 +11,15 @@ use plonky2::{
     },
 };
 
-use crate::circuit::private_inputs::PrivateInputs;
-use crate::circuit::public_inputs::PublicInputs;
 use crate::core::credential::Credential;
+use crate::encoding::conversion::ToSignatureField;
 use crate::schnorr::signature::Signature;
 
 pub(crate) mod credential;
 pub(crate) mod curve;
 pub(crate) mod gfp5;
+pub(crate) mod inputs;
 pub(crate) mod passport_number;
-pub(crate) mod private_inputs;
-pub(crate) mod public_inputs;
 pub(crate) mod scalar;
 pub(crate) mod signature;
 pub(crate) mod string;
@@ -31,8 +29,8 @@ type C = PoseidonGoldilocksConfig;
 type F = <C as GenericConfig<D>>::F;
 
 pub struct Circuit {
-    pub private_inputs: PrivateInputs<Target, BoolTarget>,
-    pub public_inputs: PublicInputs<Target>,
+    pub private_inputs: inputs::Private<Target, BoolTarget>,
+    pub public_inputs: inputs::Public<Target>,
     pub circuit: CircuitData<F, C, D>,
 }
 
@@ -44,23 +42,24 @@ pub fn circuit() -> Circuit {
     let config = CircuitConfig::default();
     let mut builder = CircuitBuilder::<F, D>::new(config);
 
-    let public_inputs = PublicInputs::<Target>::register(&mut builder);
-    let private_inputs = PrivateInputs::<Target, BoolTarget>::register(&mut builder);
+    let (public_inputs, private_inputs) = inputs::register(&mut builder);
 
-    // TODO: range check u16 for nat_code?
-    builder.connect(
-        public_inputs.nationality,
-        private_inputs.credential.nationality,
-    );
+    // TODO: range check u16 on nationality?
 
     // check that dob <= cutoff18
-    let diff = builder.sub(
-        public_inputs.cutoff18_days,
-        private_inputs.credential.birth_date,
-    );
-    // TODO: the range check on dob can be removed when this value is constrained to the credential. For now we leave it, and we ommit the range check on the public input cutoff18
-    builder.range_check(private_inputs.credential.birth_date, 32);
-    builder.range_check(diff, 32);
+    {
+        let diff = builder.sub(
+            public_inputs.cutoff18_days,
+            private_inputs.credential.birth_date,
+        );
+        // TODO: the range check on dob can be removed when this value is constrained to the credential. For now we leave it, and we ommit the range check on the public input cutoff18
+        builder.range_check(private_inputs.credential.birth_date, 32);
+        builder.range_check(diff, 32);
+    };
+    // signature check
+    {
+        // TODO:
+    }
 
     Circuit {
         private_inputs,
@@ -72,15 +71,14 @@ pub fn circuit() -> Circuit {
 pub fn witness(
     credential: &Credential,
     signature: &Signature,
-    private_inputs: &PrivateInputs<Target, BoolTarget>,
+    private_inputs: &inputs::Private<Target, BoolTarget>,
 ) -> anyhow::Result<PartialWitness<F>> {
     let mut pw = PartialWitness::new();
-    PrivateInputs::set::<F, D>(
-        &mut pw,
-        private_inputs,
-        // TODO: concat with signature
-        &PrivateInputs::from(credential, signature),
-    )?;
+    let values = inputs::Private {
+        credential: credential.to_field(),
+        signature: signature.to_field(),
+    };
+    values.set(&mut pw, private_inputs)?;
     Ok(pw)
 }
 
@@ -88,17 +86,17 @@ pub fn prove(
     circuit: &Circuit,
     credential: &Credential,
     signature: &Signature,
-    public_inputs: &PublicInputs<F>,
+    public_inputs: &inputs::Public<F>,
 ) -> anyhow::Result<ProofWithPublicInputs<F, C, D>> {
     let mut pw = witness(credential, signature, &circuit.private_inputs)?;
-    PublicInputs::set::<F, D>(&mut pw, &circuit.public_inputs, public_inputs)?;
+    public_inputs.set(&mut pw, &circuit.public_inputs)?;
     circuit.circuit.prove(pw)
 }
 
 pub fn verify(
     circuit: &CircuitData<F, C, D>,
     proof: ProofWithPublicInputs<F, C, D>,
-    public_inputs: &PublicInputs<F>,
+    public_inputs: inputs::Public<F>,
 ) -> anyhow::Result<()> {
     let proved_public_inputs = proof.public_inputs.clone();
     circuit.verify(proof)?;

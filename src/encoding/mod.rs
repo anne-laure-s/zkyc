@@ -39,10 +39,13 @@ pub struct Credential<T> {
 
 // 1 u32 = 4 ascii chars
 
-#[derive(Clone, Copy, Debug)]
+#[derive(Clone, Copy, Debug, PartialEq, Eq)]
 pub struct GFp5<T>(pub [T; LEN_FIELD]);
 
-#[derive(Clone, Copy, Debug)]
+/// /!\ Eq is formal equality of the coordinates here
+/// Note that the same point can have different representation,
+/// so the equality should only be used to compare coordinates
+#[derive(Clone, Copy, Debug, PartialEq, Eq)]
 pub struct Point<T> {
     pub x: GFp5<T>,
     pub z: GFp5<T>,
