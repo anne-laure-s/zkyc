@@ -11,6 +11,7 @@ use plonky2::{
     },
 };
 
+use crate::circuit::signature::CircuitBuilderSignature;
 use crate::core::credential::Credential;
 use crate::encoding::conversion::ToSignatureField;
 use crate::schnorr::signature::Signature;
@@ -33,39 +34,54 @@ pub struct Circuit {
     pub public_inputs: inputs::Public<Target>,
     pub circuit: CircuitData<F, C, D>,
 }
+pub struct Builder {
+    pub(crate) builder: CircuitBuilder<F, D>,
+    pub(crate) public_inputs: inputs::Public<Target>,
+    pub(crate) private_inputs: inputs::Private<Target, BoolTarget>,
+}
+
+impl Builder {
+    /// Setups builder & inputs
+    pub(crate) fn setup() -> Self {
+        let config = CircuitConfig::default();
+        let mut builder = CircuitBuilder::<F, D>::new(config);
+        let (public_inputs, private_inputs) = inputs::register(&mut builder);
+        Self {
+            builder,
+            public_inputs,
+            private_inputs,
+        }
+    }
+    pub(crate) fn build(self) -> Circuit {
+        Circuit {
+            private_inputs: self.private_inputs,
+            circuit: self.builder.build::<C>(),
+            public_inputs: self.public_inputs,
+        }
+    }
+
+    pub(crate) fn check_majority(&mut self) {
+        // check that dob <= cutoff18
+        let diff = self.builder.sub(
+            self.public_inputs.cutoff18_days,
+            self.private_inputs.credential.birth_date,
+        );
+        // TODO: the range check on dob can be removed when this value is constrained to the credential. For now we leave it, and we ommit the range check on the public input cutoff18
+        self.builder
+            .range_check(self.private_inputs.credential.birth_date, 32);
+        self.builder.range_check(diff, 32);
+    }
+}
 
 /// Prove that client knows a credential such that:
 /// - Nationality = FR,
 /// - Age >= 18
-/// later : signature check + authentification check + non-revocation check (= is in the list of authorized keys)
+/// - Signed by issuer
+/// later : authentification check + non-revocation check (= is in the list of authorized keys)
 pub fn circuit() -> Circuit {
-    let config = CircuitConfig::default();
-    let mut builder = CircuitBuilder::<F, D>::new(config);
-
-    let (public_inputs, private_inputs) = inputs::register(&mut builder);
-
-    // TODO: range check u16 on nationality?
-
-    // check that dob <= cutoff18
-    {
-        let diff = builder.sub(
-            public_inputs.cutoff18_days,
-            private_inputs.credential.birth_date,
-        );
-        // TODO: the range check on dob can be removed when this value is constrained to the credential. For now we leave it, and we ommit the range check on the public input cutoff18
-        builder.range_check(private_inputs.credential.birth_date, 32);
-        builder.range_check(diff, 32);
-    };
-    // signature check
-    {
-        // TODO:
-    }
-
-    Circuit {
-        private_inputs,
-        circuit: builder.build::<C>(),
-        public_inputs,
-    }
+    let mut builder = Builder::setup();
+    builder.check_majority();
+    builder.build()
 }
 
 pub fn witness(
