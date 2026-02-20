@@ -14,10 +14,10 @@ use crate::{
         passport_number::{CircuitBuilderPassportNumber, PartialWitnessPassportNumber},
         string::{CircuitBuilderString, PartialWitnessString},
     },
-    encoding::{conversion::FromBool, Credential},
+    encoding::{self, conversion::FromBool},
 };
 
-pub type CredentialTarget = Credential<Target, BoolTarget>;
+pub type CredentialTarget = encoding::Credential<Target, BoolTarget>;
 
 impl FromBool<Target> for BoolTarget {
     fn from_bool(self) -> Target {
@@ -31,11 +31,11 @@ pub trait CircuitBuilderCredential<F: RichField + Extendable<D>, const D: usize>
     fn register_credential_public_input(&mut self, c: CredentialTarget);
 }
 pub trait PartialWitnessCredential<F: RichField>: Witness<F> {
-    fn get_credential_target(&self, target: CredentialTarget) -> Credential<F, bool>;
+    fn get_credential_target(&self, target: CredentialTarget) -> encoding::Credential<F, bool>;
     fn set_credential_target(
         &mut self,
         target: CredentialTarget,
-        value: Credential<F, bool>,
+        value: encoding::Credential<F, bool>,
     ) -> anyhow::Result<()>;
 }
 
@@ -62,8 +62,8 @@ impl<F: RichField + Extendable<D>, const D: usize> CircuitBuilderCredential<F, D
 }
 
 impl<W: Witness<F>, F: RichField> PartialWitnessCredential<F> for W {
-    fn get_credential_target(&self, target: CredentialTarget) -> Credential<F, bool> {
-        Credential {
+    fn get_credential_target(&self, target: CredentialTarget) -> encoding::Credential<F, bool> {
+        encoding::Credential {
             first_name: self.get_string_target(target.first_name),
             family_name: self.get_string_target(target.family_name),
             place_of_birth: self.get_string_target(target.place_of_birth),
@@ -78,7 +78,7 @@ impl<W: Witness<F>, F: RichField> PartialWitnessCredential<F> for W {
     fn set_credential_target(
         &mut self,
         target: CredentialTarget,
-        value: Credential<F, bool>,
+        value: encoding::Credential<F, bool>,
     ) -> anyhow::Result<()> {
         self.set_string_target(target.first_name, value.first_name)?;
         self.set_string_target(target.family_name, value.family_name)?;

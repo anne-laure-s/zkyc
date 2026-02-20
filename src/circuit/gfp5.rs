@@ -8,9 +8,9 @@ use plonky2::{
     plonk::circuit_builder::CircuitBuilder,
 };
 
-use crate::encoding::{GFp5, LEN_FIELD};
+use crate::encoding::{self, LEN_FIELD};
 
-pub type GFp5Target = GFp5<Target>;
+pub type GFp5Target = encoding::GFp5<Target>;
 
 // TODO: check endianness in the arith implementation
 pub trait CircuitBuilderGFp5<F: RichField + Extendable<D>, const D: usize> {
@@ -19,13 +19,13 @@ pub trait CircuitBuilderGFp5<F: RichField + Extendable<D>, const D: usize> {
     fn register_gfp5_public_input(&mut self, a: GFp5Target);
     fn zero_gfp5(&mut self) -> GFp5Target;
     fn one_gfp5(&mut self) -> GFp5Target;
-    fn constant_gfp5(&mut self, c: GFp5<F>) -> GFp5Target;
+    fn constant_gfp5(&mut self, c: encoding::GFp5<F>) -> GFp5Target;
     fn is_equal_gfp5(&mut self, a: GFp5Target, b: GFp5Target) -> BoolTarget;
     fn neg_gfp5(&mut self, a: GFp5Target) -> GFp5Target;
     fn add_gfp5(&mut self, a: GFp5Target, b: GFp5Target) -> GFp5Target;
     fn sub_gfp5(&mut self, a: GFp5Target, b: GFp5Target) -> GFp5Target;
     fn mul_gfp5(&mut self, a: GFp5Target, b: GFp5Target) -> GFp5Target;
-    fn mul_const_gfp5(&mut self, c: GFp5<F>, a: GFp5Target) -> GFp5Target;
+    fn mul_const_gfp5(&mut self, c: encoding::GFp5<F>, a: GFp5Target) -> GFp5Target;
     fn double_gfp5(&mut self, a: GFp5Target) -> GFp5Target;
     fn is_zero_gfp5(&mut self, a: GFp5Target) -> BoolTarget;
     fn mul_by_b_gfp5(&mut self, v: GFp5Target) -> GFp5Target;
@@ -38,18 +38,22 @@ pub trait CircuitBuilderGFp5<F: RichField + Extendable<D>, const D: usize> {
 }
 
 pub trait PartialWitnessGFp5<F: RichField>: Witness<F> {
-    fn get_gfp5_target(&self, target: GFp5Target) -> GFp5<F>;
+    fn get_gfp5_target(&self, target: GFp5Target) -> encoding::GFp5<F>;
 
-    fn get_gfp5_targets(&self, targets: &[GFp5Target]) -> Vec<GFp5<F>> {
+    fn get_gfp5_targets(&self, targets: &[GFp5Target]) -> Vec<encoding::GFp5<F>> {
         targets.iter().map(|&t| self.get_gfp5_target(t)).collect()
     }
 
-    fn set_gfp5_target(&mut self, target: GFp5Target, value: GFp5<F>) -> anyhow::Result<()>;
+    fn set_gfp5_target(
+        &mut self,
+        target: GFp5Target,
+        value: encoding::GFp5<F>,
+    ) -> anyhow::Result<()>;
 
     fn set_gfp5_targets(
         &mut self,
         targets: &[GFp5Target],
-        values: &[GFp5<F>],
+        values: &[encoding::GFp5<F>],
     ) -> anyhow::Result<()> {
         for (&t, &v) in targets.iter().zip(values.iter()) {
             self.set_gfp5_target(t, v)?;
@@ -102,7 +106,7 @@ impl<F: RichField + Extendable<D>, const D: usize> CircuitBuilderGFp5<F, D>
         .into()
     }
 
-    fn constant_gfp5(&mut self, c: GFp5<F>) -> GFp5Target {
+    fn constant_gfp5(&mut self, c: encoding::GFp5<F>) -> GFp5Target {
         [
             self.constant(c.0[0]),
             self.constant(c.0[1]),
@@ -168,8 +172,8 @@ impl<F: RichField + Extendable<D>, const D: usize> CircuitBuilderGFp5<F, D>
     }
 
     fn mul_gfp5(&mut self, a: GFp5Target, b: GFp5Target) -> GFp5Target {
-        let GFp5([a0, a1, a2, a3, a4]) = a;
-        let GFp5([b0, b1, b2, b3, b4]) = b;
+        let encoding::GFp5([a0, a1, a2, a3, a4]) = a;
+        let encoding::GFp5([b0, b1, b2, b3, b4]) = b;
 
         let three = F::from_canonical_u64(3);
 
@@ -216,7 +220,7 @@ impl<F: RichField + Extendable<D>, const D: usize> CircuitBuilderGFp5<F, D>
         [c0, c1, c2, c3, c4].into()
     }
 
-    fn mul_const_gfp5(&mut self, c: GFp5<F>, a: GFp5Target) -> GFp5Target {
+    fn mul_const_gfp5(&mut self, c: encoding::GFp5<F>, a: GFp5Target) -> GFp5Target {
         let [a0, a1, a2, a3, a4] = a.0;
         let [c0, c1, c2, c3, c4] = c.0;
         let one = self.one();
@@ -297,11 +301,15 @@ impl<F: RichField + Extendable<D>, const D: usize> CircuitBuilderGFp5<F, D>
 }
 
 impl<W: Witness<F>, F: RichField> PartialWitnessGFp5<F> for W {
-    fn get_gfp5_target(&self, target: GFp5Target) -> GFp5<F> {
+    fn get_gfp5_target(&self, target: GFp5Target) -> encoding::GFp5<F> {
         target.0.map(|t| self.get_target(t)).into()
     }
 
-    fn set_gfp5_target(&mut self, target: GFp5Target, value: GFp5<F>) -> anyhow::Result<()> {
+    fn set_gfp5_target(
+        &mut self,
+        target: GFp5Target,
+        value: encoding::GFp5<F>,
+    ) -> anyhow::Result<()> {
         for (target, value) in target.0.into_iter().zip(value.0.into_iter()) {
             self.set_target(target, value)?;
         }
@@ -404,7 +412,7 @@ mod tests {
 
         let z = builder.zero_gfp5();
         let o = builder.one_gfp5();
-        let c = builder.constant_gfp5(GFp5([f(7), f(8), f(9), f(10), f(11)]));
+        let c = builder.constant_gfp5(encoding::GFp5([f(7), f(8), f(9), f(10), f(11)]));
 
         builder.register_gfp5_public_input(z);
         builder.register_gfp5_public_input(o);
@@ -477,7 +485,7 @@ mod tests {
 
         let a_t = builder.add_virtual_gfp5_target();
 
-        let c = GFp5([f(2), f(3), f(5), f(7), f(11)]);
+        let c = encoding::GFp5([f(2), f(3), f(5), f(7), f(11)]);
         let c_t = builder.mul_const_gfp5(c, a_t);
 
         // Compare with mul_gfp5(constant(c), a)

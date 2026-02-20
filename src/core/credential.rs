@@ -87,7 +87,7 @@ impl<F: Field> ToSingleField<F> for NaiveDate {
 
 // TODO: maybe this conversion is not necessary
 impl<F: Field> ToPointField<F> for Issuer {
-    fn to_field(&self) -> crate::encoding::Point<F> {
+    fn to_field(&self) -> encoding::Point<F> {
         self.0 .0.to_field()
     }
 }

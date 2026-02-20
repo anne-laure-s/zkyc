@@ -7,7 +7,10 @@ use plonky2::{
     plonk::circuit_builder::CircuitBuilder,
 };
 
-use crate::{arith::Scalar, encoding};
+use crate::{
+    arith,
+    encoding::{self, LEN_SCALAR},
+};
 
 pub type ScalarTarget = encoding::Scalar<BoolTarget>;
 
@@ -55,9 +58,9 @@ impl<F: RichField + Extendable<D>, const D: usize> CircuitBuilderScalar<F, D>
         let mut lt = self._false();
         // until now every bits are equal
         let mut eq = self._true();
-        for i in (0..Scalar::NB_BITS).rev() {
+        for i in (0..LEN_SCALAR).rev() {
             let b = bits[i];
-            let n = self.constant_bool(Scalar::modulus_bit_le(i));
+            let n = self.constant_bool(arith::Scalar::modulus_bit_le(i));
 
             // lt becomes true when a strictly_less has been found and every other bigger bits have been equal until now
             lt = {
@@ -125,8 +128,8 @@ mod tests {
         assert!(res.is_err(), "prove() should fail but succeeded");
     }
 
-    fn modulus_bits_le() -> [bool; Scalar::NB_BITS] {
-        core::array::from_fn(Scalar::modulus_bit_le)
+    fn modulus_bits_le() -> [bool; LEN_SCALAR] {
+        core::array::from_fn(arith::Scalar::modulus_bit_le)
     }
 
     #[test]
@@ -138,7 +141,7 @@ mod tests {
         let mut pw = PartialWitness::<F>::new();
 
         // use a safe value < modulus
-        let mut bits = [false; Scalar::NB_BITS];
+        let mut bits = [false; LEN_SCALAR];
         bits[0] = true;
         bits[5] = true;
         let s0: encoding::Scalar<bool> = bits.into();
@@ -153,9 +156,9 @@ mod tests {
     fn test_scalar_accepts_zero_one_modulus_minus_one() {
         // We'll reuse the same circuit shape 3 times by rebuilding (simple, reliable).
         for scalar in [
-            Scalar::ZERO.to_field(),
-            Scalar::ONE.to_field(),
-            (Scalar::ZERO - Scalar::ONE).to_field(),
+            arith::Scalar::ZERO.to_field(),
+            arith::Scalar::ONE.to_field(),
+            (arith::Scalar::ZERO - arith::Scalar::ONE).to_field(),
         ] {
             let mut builder =
                 CircuitBuilder::<F, D>::new(CircuitConfig::standard_recursion_config());
@@ -169,7 +172,7 @@ mod tests {
             let pis = prove_and_get_public_inputs(builder, pw);
 
             // public inputs are bits as field elems
-            assert_eq!(pis.len(), Scalar::NB_BITS);
+            assert_eq!(pis.len(), LEN_SCALAR);
 
             for (i, &pi) in pis.iter().enumerate() {
                 let expected = if scalar.0[i] { F::ONE } else { F::ZERO };

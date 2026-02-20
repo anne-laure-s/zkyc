@@ -14,7 +14,7 @@ use crate::{
         gfp5::{CircuitBuilderGFp5, PartialWitnessGFp5},
         scalar::ScalarTarget,
     },
-    encoding::{self, GFp5},
+    encoding,
 };
 
 pub type PointTarget = encoding::Point<Target>;
@@ -53,19 +53,19 @@ pub trait CircuitBuilderCurve<F: RichField + Extendable<D>, const D: usize> {
     fn scalar_mul(&mut self, p: PointTarget, s: ScalarTarget) -> PointTarget;
     fn constant_point_unsafe(
         &mut self,
-        x: GFp5<F>,
-        z: GFp5<F>,
-        u: GFp5<F>,
-        t: GFp5<F>,
+        x: encoding::GFp5<F>,
+        z: encoding::GFp5<F>,
+        u: encoding::GFp5<F>,
+        t: encoding::GFp5<F>,
     ) -> PointTarget;
 }
 
 pub trait PartialWitnessCurve<F: RichField>: Witness<F> {
-    fn get_point_target(&self, target: PointTarget) -> crate::encoding::Point<F>;
+    fn get_point_target(&self, target: PointTarget) -> encoding::Point<F>;
     fn set_point_target(
         &mut self,
         target: PointTarget,
-        value: crate::encoding::Point<F>,
+        value: encoding::Point<F>,
     ) -> anyhow::Result<()>;
 }
 
@@ -386,10 +386,10 @@ impl<F: RichField + Extendable<D>, const D: usize> CircuitBuilderCurve<F, D>
 
     fn constant_point_unsafe(
         &mut self,
-        x: GFp5<F>,
-        z: GFp5<F>,
-        u: GFp5<F>,
-        t: GFp5<F>,
+        x: encoding::GFp5<F>,
+        z: encoding::GFp5<F>,
+        u: encoding::GFp5<F>,
+        t: encoding::GFp5<F>,
     ) -> PointTarget {
         PointTarget {
             x: self.constant_gfp5(x),
@@ -420,8 +420,8 @@ impl<F: RichField + Extendable<D>, const D: usize> CircuitBuilderCurve<F, D>
 }
 
 impl<W: Witness<F>, F: RichField> PartialWitnessCurve<F> for W {
-    fn get_point_target(&self, target: PointTarget) -> crate::encoding::Point<F> {
-        crate::encoding::Point {
+    fn get_point_target(&self, target: PointTarget) -> encoding::Point<F> {
+        encoding::Point {
             x: self.get_gfp5_target(target.x),
             z: self.get_gfp5_target(target.z),
             u: self.get_gfp5_target(target.u),
@@ -432,7 +432,7 @@ impl<W: Witness<F>, F: RichField> PartialWitnessCurve<F> for W {
     fn set_point_target(
         &mut self,
         target: PointTarget,
-        value: crate::encoding::Point<F>,
+        value: encoding::Point<F>,
     ) -> anyhow::Result<()> {
         self.set_gfp5_target(target.x, value.x)?;
         self.set_gfp5_target(target.z, value.z)?;
@@ -448,12 +448,16 @@ pub(crate) mod tests {
     use crate::{
         circuit::scalar::CircuitBuilderScalar,
         encoding::{
+            self,
             conversion::{ToPointField, ToScalarField},
-            Scalar, LEN_POINT, LEN_SCALAR,
+            LEN_POINT, LEN_SCALAR,
         },
     };
 
     use super::*;
+    use crate::arith::curve::Point;
+    use crate::circuit::curve::CircuitBuilderCurve;
+    use crate::circuit::scalar::PartialWitnessScalar;
     use plonky2::{
         field::{goldilocks_field::GoldilocksField as F, types::Field},
         iop::witness::{PartialWitness, WitnessWrite},
@@ -466,9 +470,9 @@ pub(crate) mod tests {
     fn f(x: u64) -> F {
         F::from_canonical_u64(x)
     }
-    fn native_generator() -> crate::encoding::Point<F> {
+    fn native_generator() -> encoding::Point<F> {
         let native = Point::GENERATOR;
-        crate::encoding::Point {
+        encoding::Point {
             x: native.X.into(),
             z: native.Z.into(),
             u: native.U.into(),
@@ -915,7 +919,7 @@ pub(crate) mod tests {
             ]
         };
 
-        let v = crate::encoding::Point::<F> {
+        let v = encoding::Point::<F> {
             x: mk(10).into(),
             z: mk(20).into(),
             u: mk(30).into(),
@@ -954,11 +958,7 @@ pub(crate) mod tests {
     }
     #[test]
     fn test_double_point_matches_native_on_generator() {
-        use crate::arith::curve::Point as ArithPoint;
-        use crate::circuit::curve::CircuitBuilderCurve;
-        use crate::encoding::{Point as EncPoint, LEN_POINT};
-
-        let expected = ArithPoint::GENERATOR.double().to_field();
+        let expected = Point::GENERATOR.double().to_field();
 
         let mut builder = CircuitBuilder::<F, D>::new(CircuitConfig::default());
         let g = builder.generator();
@@ -970,7 +970,7 @@ pub(crate) mod tests {
         data.verify(proof.clone()).unwrap();
 
         let pi: [F; LEN_POINT] = proof.public_inputs[..LEN_POINT].try_into().unwrap();
-        let got: EncPoint<F> = pi.into();
+        let got: encoding::Point<F> = pi.into();
 
         for i in 0..5 {
             assert_eq!(got.x.0[i], expected.x.0[i], "X limb {i}");
@@ -988,12 +988,7 @@ pub(crate) mod tests {
 
     #[test]
     fn test_generator_matches_native() {
-        use crate::arith::curve::Point as ArithPoint;
-        use crate::circuit::curve::CircuitBuilderCurve;
-        use crate::encoding::{Point as EncPoint, LEN_POINT};
-
-        let expected = ArithPoint::GENERATOR.to_field();
-
+        let expected = Point::GENERATOR.to_field();
         let mut builder = CircuitBuilder::<F, D>::new(CircuitConfig::default());
         let g = builder.generator();
         builder.register_point_public_input(g);
@@ -1003,7 +998,7 @@ pub(crate) mod tests {
         data.verify(proof.clone()).unwrap();
 
         let pi: [F; LEN_POINT] = proof.public_inputs[..LEN_POINT].try_into().unwrap();
-        let got: EncPoint<F> = pi.into();
+        let got: encoding::Point<F> = pi.into();
 
         for i in 0..5 {
             assert_eq!(got.x.0[i], expected.x.0[i], "X limb {i}");
@@ -1014,16 +1009,12 @@ pub(crate) mod tests {
     }
     #[test]
     fn test_double_scalar_mul_shamir_matches_native() {
-        use crate::arith::curve::Point as ArithPoint;
-        use crate::circuit::curve::CircuitBuilderCurve;
-        use crate::circuit::scalar::PartialWitnessScalar;
-
         let s_native = u64_to_scalar(3);
         let e_native = u64_to_scalar(5);
 
-        let pk_native = ArithPoint::GENERATOR.double();
+        let pk_native = Point::GENERATOR.double();
 
-        let expected = ArithPoint::mulgen(s_native) + (pk_native * e_native);
+        let expected = Point::mulgen(s_native) + (pk_native * e_native);
 
         // IMPORTANT: encode pk through the same to_field() path as expected_field
         let pk_field = pk_native.to_field();
@@ -1093,13 +1084,8 @@ pub(crate) mod tests {
     /// discrepancy in bit order, window handling, or point operations.
     #[test]
     fn test_double_scalar_mul_shamir_random_samples() {
-        use crate::arith::curve::Point as ArithPoint;
-        use crate::circuit::curve::CircuitBuilderCurve;
-        use crate::circuit::scalar::PartialWitnessScalar;
-        use crate::encoding::conversion::ToPointField;
-
         // Choose a fixed public key for all samples: 7*G is arbitrary and non-trivial.
-        let pk_native = ArithPoint::mulgen(u64_to_scalar(7));
+        let pk_native = Point::mulgen(u64_to_scalar(7));
         // Convert pk to field representation.
         let pk_field = pk_native.to_field();
 
@@ -1121,7 +1107,7 @@ pub(crate) mod tests {
             // Compute the expected result natively.
             let s_native = u64_to_scalar(s_u64);
             let e_native = u64_to_scalar(e_u64);
-            let expected_native = ArithPoint::mulgen(s_native) + (pk_native * e_native);
+            let expected_native = Point::mulgen(s_native) + (pk_native * e_native);
             let expected_field = expected_native.to_field();
             // Allocate the expected point as a constant.
             let expected_t = builder.constant_point_unsafe(
@@ -1156,7 +1142,7 @@ pub(crate) mod tests {
         // bits constants dans le circuit (on veut tester la logique, pas le split)
         let bits_t: [_; LEN_SCALAR] = bits_bools.map(|b| builder.constant_bool(b));
 
-        let out_t = builder.scalar_mul(base_t, Scalar(bits_t));
+        let out_t = builder.scalar_mul(base_t, encoding::Scalar(bits_t));
 
         builder.register_point_public_input(out_t);
 
@@ -1171,7 +1157,7 @@ pub(crate) mod tests {
 
     pub fn check_public_input_point(pi: &[F], expected: crate::arith::Point) {
         let pi: [F; LEN_POINT] = pi[..LEN_POINT].try_into().unwrap();
-        let got: crate::encoding::Point<F> = pi.into();
+        let got: encoding::Point<F> = pi.into();
         let got: crate::arith::Point = got.into();
         if got.U.iszero() == u64::MAX && expected.U.iszero() == u64::MAX {
             return;

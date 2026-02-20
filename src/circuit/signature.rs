@@ -18,10 +18,10 @@ use crate::{
         curve::{CircuitBuilderCurve, PartialWitnessCurve},
         scalar::{CircuitBuilderScalar, PartialWitnessScalar, ScalarTarget},
     },
-    encoding::{Signature, LEN_CREDENTIAL, LEN_POINT, LEN_SCALAR},
+    encoding::{self, LEN_CREDENTIAL, LEN_POINT, LEN_SCALAR},
 };
 
-pub type SignatureTarget = Signature<Target, BoolTarget>;
+pub type SignatureTarget = encoding::Signature<Target, BoolTarget>;
 
 pub trait CircuitBuilderSignature<F: RichField + Extendable<D>, const D: usize> {
     fn add_virtual_signature_target(&mut self) -> SignatureTarget;
@@ -30,11 +30,11 @@ pub trait CircuitBuilderSignature<F: RichField + Extendable<D>, const D: usize> 
     fn verify(&mut self, credential: &CredentialTarget, signature: &SignatureTarget);
 }
 pub trait PartialWitnessSignature<F: RichField>: Witness<F> {
-    fn get_signature_target(&self, target: SignatureTarget) -> crate::encoding::Signature<F, bool>;
+    fn get_signature_target(&self, target: SignatureTarget) -> encoding::Signature<F, bool>;
     fn set_signature_target(
         &mut self,
         target: SignatureTarget,
-        value: crate::encoding::Signature<F, bool>,
+        value: encoding::Signature<F, bool>,
     ) -> anyhow::Result<()>;
 }
 
@@ -94,8 +94,8 @@ impl<F: RichField + Extendable<D>, const D: usize> CircuitBuilderSignature<F, D>
 }
 
 impl<W: Witness<F>, F: RichField> PartialWitnessSignature<F> for W {
-    fn get_signature_target(&self, target: SignatureTarget) -> crate::encoding::Signature<F, bool> {
-        crate::encoding::Signature {
+    fn get_signature_target(&self, target: SignatureTarget) -> encoding::Signature<F, bool> {
+        encoding::Signature {
             r: self.get_point_target(target.r),
             s: self.get_scalar_target(target.s),
         }
@@ -103,7 +103,7 @@ impl<W: Witness<F>, F: RichField> PartialWitnessSignature<F> for W {
     fn set_signature_target(
         &mut self,
         target: SignatureTarget,
-        value: crate::encoding::Signature<F, bool>,
+        value: encoding::Signature<F, bool>,
     ) -> anyhow::Result<()> {
         self.set_point_target(target.r, value.r)?;
         self.set_scalar_target(target.s, value.s)?;
@@ -113,6 +113,7 @@ impl<W: Witness<F>, F: RichField> PartialWitnessSignature<F> for W {
 #[cfg(test)]
 mod tests {
     use crate::{
+        arith,
         circuit::{
             credential::{CircuitBuilderCredential, PartialWitnessCredential},
             curve::tests::check_public_input_point,
@@ -120,7 +121,7 @@ mod tests {
         core::credential,
         encoding::{
             conversion::{ToPointField, ToSignatureField},
-            Point, LEN_FIELD,
+            LEN_FIELD,
         },
         schnorr::{
             self,
@@ -164,7 +165,7 @@ mod tests {
 
         // PointTarget = 4 GFp5 = 4*5 = 20 field elements
         // ScalarTarget = Scalar::NB_BITS public inputs (register_scalar_public_input usually registers bits)
-        let expected = 20 + crate::arith::Scalar::NB_BITS;
+        let expected = 20 + arith::Scalar::NB_BITS;
 
         assert_eq!(data.common.num_public_inputs, expected);
     }
@@ -178,15 +179,15 @@ mod tests {
 
         // --- build a concrete signature value (r,s) ---
         // Use a simple non-zero scalar (bit 0 and bit 5 set).
-        let mut bits = [false; crate::arith::Scalar::NB_BITS];
+        let mut bits = [false; arith::Scalar::NB_BITS];
         bits[0] = true;
         bits[5] = true;
-        let s_native = crate::encoding::Scalar(bits);
+        let s_native = encoding::Scalar(bits);
 
         // A simple point encoding
-        let r_native: Point<F> = crate::arith::Point::GENERATOR.to_field();
+        let r_native: encoding::Point<F> = arith::Point::GENERATOR.to_field();
 
-        let sig_native = crate::encoding::Signature {
+        let sig_native = encoding::Signature {
             r: r_native,
             s: s_native,
         };
@@ -284,7 +285,7 @@ mod tests {
             schnorr::transcript::hash(&sig0.0.r, schnorr::transcript::Context::Sig(&ctx));
 
         let public_inputs: [F; LEN_SCALAR] = proof.public_inputs.try_into().unwrap();
-        let e_circuit = crate::arith::Scalar::from_bits_le(&public_inputs.map(|x| F::is_one(&x)));
+        let e_circuit = arith::Scalar::from_bits_le(&public_inputs.map(|x| F::is_one(&x)));
         assert!(e_native.equals(e_circuit) == u64::MAX)
     }
 }

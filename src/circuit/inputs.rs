@@ -16,8 +16,9 @@ use crate::{
     },
     core::{credential::Nationality, date::cutoff18_from_today_for_tests},
     encoding::{
+        self,
         conversion::{ToPointField, ToSingleField},
-        Credential, Point, Signature, LEN_CREDENTIAL, LEN_POINT,
+        LEN_CREDENTIAL, LEN_POINT,
     },
     issuer,
     schnorr::keys::PublicKey,
@@ -26,11 +27,11 @@ use crate::{
 pub struct Public<T> {
     pub(crate) cutoff18_days: T,
     pub(crate) nationality: T,
-    pub(crate) issuer_pk: Point<T>,
+    pub(crate) issuer_pk: encoding::Point<T>,
 }
 pub(crate) struct Private<T, TBool> {
-    pub(crate) credential: Credential<T, TBool>,
-    pub(crate) signature: Signature<T, TBool>,
+    pub(crate) credential: encoding::Credential<T, TBool>,
+    pub(crate) signature: encoding::Signature<T, TBool>,
 }
 
 pub const LEN_PUBLIC_INPUTS: usize = 1 + 1 + LEN_POINT;
@@ -114,7 +115,7 @@ impl<F: RichField> Public<F> {
         );
         {
             let value: [F; LEN_POINT] = proved[1..LEN_POINT + 1].try_into().unwrap();
-            let value: Point<F> = value.into();
+            let value: encoding::Point<F> = value.into();
             anyhow::ensure!(
                 value == self.issuer_pk,
                 "public inputs mismatch for issuer_pk"
