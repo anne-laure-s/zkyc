@@ -1,10 +1,7 @@
 use anyhow::Ok;
 use plonky2::{
     field::extension::Extendable,
-    hash::{
-        hash_types::{HashOutTarget, RichField},
-        poseidon::PoseidonHash,
-    },
+    hash::hash_types::RichField,
     iop::{
         target::{BoolTarget, Target},
         witness::Witness,
@@ -17,8 +14,9 @@ use crate::{
         credential::CredentialTarget,
         curve::{CircuitBuilderCurve, PartialWitnessCurve},
         scalar::{CircuitBuilderScalar, PartialWitnessScalar, ScalarTarget},
+        schnorr::CircuitBuilderSchnorr,
     },
-    encoding::{self, LEN_CREDENTIAL, LEN_POINT, LEN_SCALAR},
+    encoding::{self, LEN_CREDENTIAL},
 };
 
 pub type SignatureTarget = encoding::Signature<Target, BoolTarget>;
@@ -52,44 +50,13 @@ impl<F: RichField + Extendable<D>, const D: usize> CircuitBuilderSignature<F, D>
         self.register_scalar_public_input(s.0.s);
     }
     fn hash(&mut self, credential: &CredentialTarget, signature: &SignatureTarget) -> ScalarTarget {
-        let base_inputs: [Target; LEN_POINT] = signature.0.r.into();
         let credential_input: [Target; LEN_CREDENTIAL] = credential.into();
-        let mut base_inputs = base_inputs.to_vec();
-
-        base_inputs.extend_from_slice(&credential_input);
-
-        let mut bits: Vec<BoolTarget> = Vec::with_capacity(LEN_SCALAR);
-
-        // h0
-        let h0: HashOutTarget = self.hash_n_to_hash_no_pad::<PoseidonHash>(base_inputs);
-        for i in 0..4 {
-            bits.extend(self.split_le(h0.elements[i], 64));
-        }
-
-        // secondary hash
-
-        let mut ctr = F::ONE;
-        while bits.len() < LEN_SCALAR {
-            let ctr_t = self.constant(ctr);
-
-            let mut inp = vec![ctr_t];
-            inp.extend_from_slice(&h0.elements); // 4 mots
-
-            let hi: HashOutTarget = self.hash_n_to_hash_no_pad::<PoseidonHash>(inp);
-            for i in 0..4 {
-                bits.extend(self.split_le(hi.elements[i], 64));
-            }
-            ctr += F::ONE;
-        }
-
-        bits.truncate(LEN_SCALAR);
-        let bits: [BoolTarget; LEN_SCALAR] = bits.try_into().unwrap();
-        bits.into()
+        self.schnorr_hash_with_message(signature.0, &credential_input)
     }
     fn verify(&mut self, credential: &CredentialTarget, signature: &SignatureTarget) {
         let pk = credential.issuer;
         let e = self.hash(credential, signature);
-        self.schnorr_final_verification(signature.0.s, e, pk, signature.0.r);
+        self.schnorr_final_verification(signature.0, e, pk, signature.0.r);
     }
 }
 
@@ -121,7 +88,7 @@ mod tests {
         core::credential,
         encoding::{
             conversion::{ToPointField, ToSignatureField},
-            LEN_FIELD,
+            LEN_FIELD, LEN_SCALAR,
         },
         schnorr::{
             self,

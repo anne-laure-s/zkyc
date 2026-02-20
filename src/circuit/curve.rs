@@ -22,13 +22,6 @@ pub type PointTarget = encoding::Point<Target>;
 pub trait CircuitBuilderCurve<F: RichField + Extendable<D>, const D: usize> {
     fn generator(&mut self) -> PointTarget;
     fn select_point(&mut self, c: BoolTarget, a: PointTarget, b: PointTarget) -> PointTarget;
-    fn schnorr_final_verification(
-        &mut self,
-        s: ScalarTarget,
-        e: ScalarTarget,
-        pk: PointTarget,
-        r: PointTarget,
-    );
     fn double_scalar_mul_shamir(
         &mut self,
         s: ScalarTarget,
@@ -362,26 +355,6 @@ impl<F: RichField + Extendable<D>, const D: usize> CircuitBuilderCurve<F, D>
         }
 
         acc
-    }
-
-    // Optimized Schnorr verification using Shamir (double-scalar mul) in one loop.
-    // Verifies: s*G == R + e*P   <=>   s*G + e*(-P) == R
-    fn schnorr_final_verification(
-        &mut self,
-        s: ScalarTarget,
-        e: ScalarTarget,
-        pk: PointTarget,
-        r: PointTarget,
-    ) {
-        let pk_neg = self.neg_point(pk);
-
-        // lhs = s*G + e*(-P)
-        let lhs = self.double_scalar_mul_shamir(s, e, pk_neg);
-
-        // lhs must equal R
-        let res = self.is_equal_point(lhs, r);
-
-        self.assert_one(res.target);
     }
 
     fn constant_point_unsafe(

@@ -22,6 +22,7 @@ pub(crate) mod gfp5;
 pub(crate) mod inputs;
 pub(crate) mod passport_number;
 pub(crate) mod scalar;
+pub(crate) mod schnorr;
 pub(crate) mod signature;
 pub(crate) mod string;
 

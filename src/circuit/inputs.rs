@@ -10,9 +10,12 @@ use plonky2::{
 
 use crate::{
     circuit::{
-        credential::CircuitBuilderCredential, curve::PartialWitnessCurve,
-        passport_number::PartialWitnessPassportNumber, scalar::PartialWitnessScalar,
-        signature::CircuitBuilderSignature, string::PartialWitnessString,
+        credential::CircuitBuilderCredential,
+        curve::PartialWitnessCurve,
+        passport_number::PartialWitnessPassportNumber,
+        scalar::PartialWitnessScalar,
+        signature::{CircuitBuilderSignature, PartialWitnessSignature},
+        string::PartialWitnessString,
     },
     core::{credential::Nationality, date::cutoff18_from_today_for_tests},
     encoding::{
@@ -90,8 +93,7 @@ impl<F: RichField> Private<F, bool> {
         }
         // signature
         {
-            pw.set_point_target(targets.signature.r, self.signature.r)?;
-            pw.set_scalar_target(targets.signature.s, self.signature.s)?;
+            pw.set_signature_target(targets.signature, self.signature)?;
         }
         Ok(())
     }
