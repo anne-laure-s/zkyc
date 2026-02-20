@@ -23,7 +23,7 @@ pub type SignatureTarget = encoding::Signature<Target, BoolTarget>;
 
 pub trait CircuitBuilderSignature<F: RichField + Extendable<D>, const D: usize> {
     fn add_virtual_signature_target(&mut self) -> SignatureTarget;
-    fn register_signature_public_input(&mut self, s: SignatureTarget);
+    fn register_signature_public_input(&mut self, target: SignatureTarget);
     fn hash(&mut self, credential: &CredentialTarget, signature: &SignatureTarget) -> ScalarTarget;
     fn verify(&mut self, credential: &CredentialTarget, signature: &SignatureTarget);
 }
@@ -45,9 +45,9 @@ impl<F: RichField + Extendable<D>, const D: usize> CircuitBuilderSignature<F, D>
             s: self.add_virtual_scalar_target(),
         })
     }
-    fn register_signature_public_input(&mut self, s: SignatureTarget) {
-        self.register_point_public_input(s.0.r);
-        self.register_scalar_public_input(s.0.s);
+    fn register_signature_public_input(&mut self, target: SignatureTarget) {
+        self.register_point_public_input(target.0.r);
+        self.register_scalar_public_input(target.0.s);
     }
     fn hash(&mut self, credential: &CredentialTarget, signature: &SignatureTarget) -> ScalarTarget {
         let credential_input: [Target; LEN_CREDENTIAL] = credential.into();

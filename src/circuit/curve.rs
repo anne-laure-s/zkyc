@@ -32,7 +32,7 @@ pub trait CircuitBuilderCurve<F: RichField + Extendable<D>, const D: usize> {
     fn is_zero_point(&mut self, p: PointTarget) -> BoolTarget;
     fn assert_non_zero_point(&mut self, p: PointTarget);
     fn add_virtual_point_target(&mut self) -> PointTarget;
-    fn register_point_public_input(&mut self, p: PointTarget);
+    fn register_point_public_input(&mut self, target: PointTarget);
     fn assert_on_curve(&mut self, p: PointTarget);
     fn zero_point(&mut self) -> PointTarget;
     /// This function asserts that a and b have the same coordinate,
@@ -79,11 +79,11 @@ impl<F: RichField + Extendable<D>, const D: usize> CircuitBuilderCurve<F, D>
         p
     }
 
-    fn register_point_public_input(&mut self, p: PointTarget) {
-        self.register_gfp5_public_input(p.x);
-        self.register_gfp5_public_input(p.z);
-        self.register_gfp5_public_input(p.u);
-        self.register_gfp5_public_input(p.t);
+    fn register_point_public_input(&mut self, target: PointTarget) {
+        self.register_gfp5_public_input(target.x);
+        self.register_gfp5_public_input(target.z);
+        self.register_gfp5_public_input(target.u);
+        self.register_gfp5_public_input(target.t);
     }
 
     fn zero_point(&mut self) -> PointTarget {

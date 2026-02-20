@@ -28,7 +28,7 @@ impl FromBool<Target> for BoolTarget {
 pub trait CircuitBuilderCredential<F: RichField + Extendable<D>, const D: usize> {
     fn add_virtual_credential_target(&mut self) -> CredentialTarget;
     /// Registers nationnality and issuer as public_input
-    fn register_credential_public_input(&mut self, c: CredentialTarget);
+    fn register_credential_public_input(&mut self, target: CredentialTarget);
 }
 pub trait PartialWitnessCredential<F: RichField>: Witness<F> {
     fn get_credential_target(&self, target: CredentialTarget) -> encoding::Credential<F, bool>;
@@ -55,9 +55,9 @@ impl<F: RichField + Extendable<D>, const D: usize> CircuitBuilderCredential<F, D
             issuer: self.add_virtual_point_target(),
         }
     }
-    fn register_credential_public_input(&mut self, c: CredentialTarget) {
-        self.register_public_input(c.nationality);
-        self.register_point_public_input(c.issuer);
+    fn register_credential_public_input(&mut self, target: CredentialTarget) {
+        self.register_public_input(target.nationality);
+        self.register_point_public_input(target.issuer);
     }
 }
 

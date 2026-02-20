@@ -12,7 +12,7 @@ type StringTarget = encoding::String<Target>;
 
 pub trait CircuitBuilderString<F: RichField + Extendable<D>, const D: usize> {
     fn add_virtual_string_target(&mut self) -> StringTarget;
-    fn register_string_public_input(&mut self, s: StringTarget);
+    fn register_string_public_input(&mut self, target: StringTarget);
 }
 pub trait PartialWitnessString<F: RichField>: Witness<F> {
     fn get_string_target(&self, target: StringTarget) -> encoding::String<F>;
@@ -31,8 +31,8 @@ impl<F: RichField + Extendable<D>, const D: usize> CircuitBuilderString<F, D>
             self.add_virtual_target()
         }))
     }
-    fn register_string_public_input(&mut self, s: StringTarget) {
-        for t in s.0.into_iter() {
+    fn register_string_public_input(&mut self, target: StringTarget) {
+        for t in target.0.into_iter() {
             self.register_public_input(t);
         }
     }

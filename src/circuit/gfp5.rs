@@ -16,7 +16,7 @@ pub type GFp5Target = encoding::GFp5<Target>;
 pub trait CircuitBuilderGFp5<F: RichField + Extendable<D>, const D: usize> {
     fn add_virtual_gfp5_target(&mut self) -> GFp5Target;
     fn connect_gfp5(&mut self, a: GFp5Target, b: GFp5Target);
-    fn register_gfp5_public_input(&mut self, a: GFp5Target);
+    fn register_gfp5_public_input(&mut self, target: GFp5Target);
     fn zero_gfp5(&mut self) -> GFp5Target;
     fn one_gfp5(&mut self) -> GFp5Target;
     fn constant_gfp5(&mut self, c: encoding::GFp5<F>) -> GFp5Target;
@@ -73,8 +73,8 @@ impl<F: RichField + Extendable<D>, const D: usize> CircuitBuilderGFp5<F, D>
             self.connect(lhs, rhs);
         }
     }
-    fn register_gfp5_public_input(&mut self, a: GFp5Target) {
-        for t in a.0.into_iter() {
+    fn register_gfp5_public_input(&mut self, target: GFp5Target) {
+        for t in target.0.into_iter() {
             self.register_public_input(t);
         }
     }

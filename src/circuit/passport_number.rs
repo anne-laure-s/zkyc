@@ -12,7 +12,7 @@ type PassportNumberTarget = encoding::PassportNumber<Target>;
 
 pub trait CircuitBuilderPassportNumber<F: RichField + Extendable<D>, const D: usize> {
     fn add_virtual_passport_number_target(&mut self) -> PassportNumberTarget;
-    fn register_passport_number_public_input(&mut self, s: PassportNumberTarget);
+    fn register_passport_number_public_input(&mut self, target: PassportNumberTarget);
 }
 pub trait PartialWitnessPassportNumber<F: RichField>: Witness<F> {
     fn get_passport_number_target(
@@ -34,8 +34,8 @@ impl<F: RichField + Extendable<D>, const D: usize> CircuitBuilderPassportNumber<
             self.add_virtual_target()
         }))
     }
-    fn register_passport_number_public_input(&mut self, s: PassportNumberTarget) {
-        for t in s.0.into_iter() {
+    fn register_passport_number_public_input(&mut self, target: PassportNumberTarget) {
+        for t in target.0.into_iter() {
             self.register_public_input(t);
         }
     }

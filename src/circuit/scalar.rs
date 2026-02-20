@@ -18,7 +18,7 @@ pub trait CircuitBuilderScalar<F: RichField + Extendable<D>, const D: usize> {
     /// The Target is asserted to be 0 <= s < modulus
     fn add_virtual_scalar_target(&mut self) -> ScalarTarget;
     // fn connect_scalar(&mut self, a: ScalarTarget, b: ScalarTarget);
-    fn register_scalar_public_input(&mut self, s: ScalarTarget);
+    fn register_scalar_public_input(&mut self, target: ScalarTarget);
 }
 pub trait PartialWitnessScalar<F: RichField>: Witness<F> {
     fn get_scalar_target(&self, target: ScalarTarget) -> encoding::Scalar<bool>;
@@ -79,8 +79,10 @@ impl<F: RichField + Extendable<D>, const D: usize> CircuitBuilderScalar<F, D>
         self.assert_one(lt.target);
         bits.into()
     }
-    fn register_scalar_public_input(&mut self, s: ScalarTarget) {
-        s.0.iter()
+    fn register_scalar_public_input(&mut self, target: ScalarTarget) {
+        target
+            .0
+            .iter()
             .for_each(|&t| self.register_public_input(t.target));
     }
 }
