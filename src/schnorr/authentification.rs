@@ -1,5 +1,8 @@
 use plonky2::field::goldilocks_field::GoldilocksField;
+use plonky2::hash::hash_types::RichField;
 
+use crate::encoding;
+use crate::encoding::conversion::ToSignatureField;
 use crate::encoding::conversion::ToVecField;
 use crate::encoding::LEN_STRING;
 
@@ -59,6 +62,12 @@ impl Authentification {
     /// verifies the authentification proof
     pub fn verify(&self, ctx: &Context) -> bool {
         self.0.verify(ctx.to_context())
+    }
+}
+
+impl<F: RichField> ToSignatureField<F, bool> for Authentification {
+    fn to_field(&self) -> encoding::Signature<F, bool> {
+        self.0.to_field()
     }
 }
 #[cfg(test)]
