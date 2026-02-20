@@ -126,3 +126,160 @@ pub fn verify(
     circuit.verify(proof)?;
     public_inputs.check(&proved_public_inputs)
 }
+
+#[cfg(test)]
+mod tests {
+    use plonky2::field::types::Field;
+    use rand::{rngs::StdRng, SeedableRng};
+
+    use super::{circuit, inputs, prove, verify, F};
+    use crate::{
+        circuit::Circuit,
+        core::{credential::Credential, date::cutoff18_from_today_for_tests},
+        encoding::conversion::{ToPointField, ToSingleField},
+        issuer,
+        schnorr::{
+            keys::SecretKey,
+            signature::{Context, Signature},
+        },
+    };
+
+    fn matching_public_inputs(credential: &Credential) -> inputs::Public<F> {
+        inputs::Public {
+            cutoff18_days: cutoff18_from_today_for_tests().to_field(),
+            nationality: credential.nationality().to_field(),
+            issuer_pk: credential.issuer().0.to_field(),
+        }
+    }
+
+    fn valid_credential_and_signature(rng: &mut StdRng) -> (Credential, Signature) {
+        let issuer_sk = issuer::keys::secret();
+        let credential = Credential::random_with_issuer(&issuer_sk, rng);
+        let ctx = Context::new(&credential);
+        let signature = Signature::sign(&issuer_sk, &ctx);
+        (credential, signature)
+    }
+    fn circuit_without_signature() -> Circuit {
+        let mut builder = super::Builder::setup();
+        builder.check_majority();
+        builder.check_signature();
+        builder.build()
+    }
+
+    #[test]
+    fn prove_and_verify_accept_matching_inputs() {
+        let mut rng = StdRng::seed_from_u64(1);
+        let (credential, signature) = valid_credential_and_signature(&mut rng);
+        let public_inputs = matching_public_inputs(&credential);
+        let c = circuit();
+
+        let proof = prove(&c, &credential, &signature, &public_inputs).unwrap();
+        verify(&c.circuit, proof, public_inputs).unwrap();
+    }
+
+    #[test]
+    fn prove_rejects_wrong_issuer_public_input() {
+        let mut rng = StdRng::seed_from_u64(2);
+        let (credential, signature) = valid_credential_and_signature(&mut rng);
+        let mut public_inputs = matching_public_inputs(&credential);
+        let wrong_issuer_sk = SecretKey::random(&mut rng);
+        public_inputs.issuer_pk = crate::schnorr::keys::PublicKey::from(&wrong_issuer_sk)
+            .0
+            .to_field();
+
+        let c = circuit_without_signature();
+        let result = prove(&c, &credential, &signature, &public_inputs);
+        assert!(result.is_err());
+    }
+
+    #[test]
+    fn prove_rejects_wrong_nationality_public_input() {
+        let mut rng = StdRng::seed_from_u64(3);
+        let (credential, signature) = valid_credential_and_signature(&mut rng);
+        let mut public_inputs = matching_public_inputs(&credential);
+        public_inputs.nationality = F::from_canonical_u64(251);
+
+        let c = circuit_without_signature();
+        let result = prove(&c, &credential, &signature, &public_inputs);
+        assert!(result.is_err());
+    }
+
+    #[test]
+    fn verify_rejects_mismatched_public_inputs() {
+        let mut rng = StdRng::seed_from_u64(4);
+        let (credential, signature) = valid_credential_and_signature(&mut rng);
+        let public_inputs = matching_public_inputs(&credential);
+        let c = circuit_without_signature();
+        let proof = prove(&c, &credential, &signature, &public_inputs).unwrap();
+
+        let mut wrong_public_inputs = matching_public_inputs(&credential);
+        wrong_public_inputs.cutoff18_days += F::ONE;
+        let result = verify(&c.circuit, proof, wrong_public_inputs);
+        assert!(result.is_err());
+    }
+
+    #[test]
+    fn verify_rejects_wrong_issuer_publc_input() {
+        let mut rng = StdRng::seed_from_u64(7);
+        let (credential, signature) = valid_credential_and_signature(&mut rng);
+        let public_inputs = matching_public_inputs(&credential);
+        let c = circuit_without_signature();
+        let proof = prove(&c, &credential, &signature, &public_inputs).unwrap();
+
+        let mut wrong_public_inputs = matching_public_inputs(&credential);
+        let wrong_issuer_sk = SecretKey::random(&mut rng);
+        wrong_public_inputs.issuer_pk = crate::schnorr::keys::PublicKey::from(&wrong_issuer_sk)
+            .0
+            .to_field();
+
+        let result = verify(&c.circuit, proof, wrong_public_inputs);
+        assert!(result.is_err());
+    }
+
+    #[test]
+    fn verify_rejects_wrong_nationality_public_input() {
+        let mut rng = StdRng::seed_from_u64(8);
+        let (credential, signature) = valid_credential_and_signature(&mut rng);
+        let public_inputs = matching_public_inputs(&credential);
+        let c = circuit_without_signature();
+        let proof = prove(&c, &credential, &signature, &public_inputs).unwrap();
+
+        let mut wrong_public_inputs = matching_public_inputs(&credential);
+        wrong_public_inputs.nationality = F::from_canonical_u64(251);
+
+        let result = verify(&c.circuit, proof, wrong_public_inputs);
+        assert!(result.is_err());
+    }
+
+    #[test]
+    fn prove_rejects_underage_credential() {
+        use std::panic::{catch_unwind, AssertUnwindSafe};
+
+        let mut rng = StdRng::seed_from_u64(5);
+        let credential = Credential::random_minor(&mut rng);
+        let ctx = Context::new(&credential);
+        let signature = Signature::sign(&issuer::keys::secret(), &ctx);
+        let c = circuit_without_signature();
+        let public_inputs = inputs::Public::new();
+
+        let result = catch_unwind(AssertUnwindSafe(|| {
+            prove(&c, &credential, &signature, &public_inputs)
+        }));
+        assert!(matches!(result, Ok(Err(_)) | Err(_)));
+    }
+
+    #[test]
+    fn prove_rejects_signature_with_wrong_secret() {
+        let mut rng = StdRng::seed_from_u64(6);
+        let issuer_sk = issuer::keys::secret();
+        let credential = Credential::random_with_issuer(&issuer_sk, &mut rng);
+        let wrong_signing_sk = SecretKey::random(&mut rng);
+        let ctx = Context::new(&credential);
+        let signature = Signature::sign(&wrong_signing_sk, &ctx);
+        let public_inputs = matching_public_inputs(&credential);
+        let c = circuit();
+
+        let result = prove(&c, &credential, &signature, &public_inputs);
+        assert!(result.is_err());
+    }
+}
