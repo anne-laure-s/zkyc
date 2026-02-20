@@ -42,17 +42,17 @@ impl<F: RichField + Extendable<D>, const D: usize> CircuitBuilderSignature<F, D>
     for CircuitBuilder<F, D>
 {
     fn add_virtual_signature_target(&mut self) -> SignatureTarget {
-        SignatureTarget {
+        encoding::Signature(encoding::SchnorrProof {
             r: self.add_virtual_point_target(),
             s: self.add_virtual_scalar_target(),
-        }
+        })
     }
     fn register_signature_public_input(&mut self, s: SignatureTarget) {
-        self.register_point_public_input(s.r);
-        self.register_scalar_public_input(s.s);
+        self.register_point_public_input(s.0.r);
+        self.register_scalar_public_input(s.0.s);
     }
     fn hash(&mut self, credential: &CredentialTarget, signature: &SignatureTarget) -> ScalarTarget {
-        let base_inputs: [Target; LEN_POINT] = signature.r.into();
+        let base_inputs: [Target; LEN_POINT] = signature.0.r.into();
         let credential_input: [Target; LEN_CREDENTIAL] = credential.into();
         let mut base_inputs = base_inputs.to_vec();
 
@@ -89,24 +89,24 @@ impl<F: RichField + Extendable<D>, const D: usize> CircuitBuilderSignature<F, D>
     fn verify(&mut self, credential: &CredentialTarget, signature: &SignatureTarget) {
         let pk = credential.issuer;
         let e = self.hash(credential, signature);
-        self.schnorr_final_verification(signature.s, e, pk, signature.r);
+        self.schnorr_final_verification(signature.0.s, e, pk, signature.0.r);
     }
 }
 
 impl<W: Witness<F>, F: RichField> PartialWitnessSignature<F> for W {
     fn get_signature_target(&self, target: SignatureTarget) -> encoding::Signature<F, bool> {
-        encoding::Signature {
-            r: self.get_point_target(target.r),
-            s: self.get_scalar_target(target.s),
-        }
+        encoding::Signature(encoding::SchnorrProof {
+            r: self.get_point_target(target.0.r),
+            s: self.get_scalar_target(target.0.s),
+        })
     }
     fn set_signature_target(
         &mut self,
         target: SignatureTarget,
         value: encoding::Signature<F, bool>,
     ) -> anyhow::Result<()> {
-        self.set_point_target(target.r, value.r)?;
-        self.set_scalar_target(target.s, value.s)?;
+        self.set_point_target(target.0.r, value.0.r)?;
+        self.set_scalar_target(target.0.s, value.0.s)?;
         Ok(())
     }
 }
@@ -149,8 +149,8 @@ mod tests {
         let s2 = builder.add_virtual_signature_target();
 
         // Sanity: the first limb of r.x should differ, and at least one scalar bit should differ.
-        assert_ne!(s1.r.x.0[0], s2.r.x.0[0]);
-        assert_ne!(s1.s.0[0].target, s2.s.0[0].target);
+        assert_ne!(s1.0.r.x.0[0], s2.0.r.x.0[0]);
+        assert_ne!(s1.0.s.0[0].target, s2.0.s.0[0].target);
     }
 
     #[test]
@@ -187,10 +187,10 @@ mod tests {
         // A simple point encoding
         let r_native: encoding::Point<F> = arith::Point::GENERATOR.to_field();
 
-        let sig_native = encoding::Signature {
+        let sig_native = encoding::Signature(encoding::SchnorrProof {
             r: r_native,
             s: s_native,
-        };
+        });
 
         // --- set then get ---
         let mut pw = PartialWitness::<F>::new();
@@ -199,16 +199,16 @@ mod tests {
         let got = pw.get_signature_target(sig_t);
 
         // Compare scalar
-        for (s, n) in got.s.0.iter().zip(sig_native.s.0.iter()) {
+        for (s, n) in got.0.s.0.iter().zip(sig_native.0.s.0.iter()) {
             assert_eq!(s, n);
         }
 
         // Compare point limbs
         for i in 0..LEN_FIELD {
-            assert_eq!(got.r.x.0[i], sig_native.r.x.0[i]);
-            assert_eq!(got.r.z.0[i], sig_native.r.z.0[i]);
-            assert_eq!(got.r.u.0[i], sig_native.r.u.0[i]);
-            assert_eq!(got.r.t.0[i], sig_native.r.t.0[i]);
+            assert_eq!(got.0.r.x.0[i], sig_native.0.r.x.0[i]);
+            assert_eq!(got.0.r.z.0[i], sig_native.0.r.z.0[i]);
+            assert_eq!(got.0.r.u.0[i], sig_native.0.r.u.0[i]);
+            assert_eq!(got.0.r.t.0[i], sig_native.0.r.t.0[i]);
         }
 
         // Finally, proving should succeed since we added no constraints beyond PI wiring.

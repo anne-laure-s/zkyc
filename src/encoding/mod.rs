@@ -59,7 +59,10 @@ pub struct Point<T> {
 pub struct Scalar<T>(pub(crate) [T; LEN_SCALAR]);
 
 #[derive(Clone, Copy, Debug)]
-pub struct Signature<T, TBool> {
+pub struct SchnorrProof<T, TBool> {
     pub(crate) r: Point<T>,
     pub(crate) s: Scalar<TBool>,
 }
+
+#[derive(Clone, Copy, Debug)]
+pub struct Signature<T, TBool>(pub(crate) SchnorrProof<T, TBool>);
