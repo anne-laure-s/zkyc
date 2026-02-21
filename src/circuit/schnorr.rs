@@ -34,7 +34,6 @@ pub trait CircuitBuilderSchnorr<F: RichField + Extendable<D>, const D: usize> {
         proof: SchnorrTarget,
         e: ScalarTarget,
         pk: PointTarget,
-        r: PointTarget,
     );
 }
 
@@ -104,7 +103,6 @@ impl<F: RichField + Extendable<D>, const D: usize> CircuitBuilderSchnorr<F, D>
         proof: SchnorrTarget,
         e: ScalarTarget,
         pk: PointTarget,
-        r: PointTarget,
     ) {
         let pk_neg = self.neg_point(pk);
 
@@ -112,7 +110,7 @@ impl<F: RichField + Extendable<D>, const D: usize> CircuitBuilderSchnorr<F, D>
         let lhs = self.double_scalar_mul_shamir(proof.s, e, pk_neg);
 
         // lhs must equal R
-        let res = self.is_equal_point(lhs, r);
+        let res = self.is_equal_point(lhs, proof.r);
 
         self.assert_one(res.target);
     }

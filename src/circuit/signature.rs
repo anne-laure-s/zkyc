@@ -50,7 +50,7 @@ impl<F: RichField + Extendable<D>, const D: usize> CircuitBuilderSignature<F, D>
     fn verify(&mut self, credential: &CredentialTarget, signature: &SignatureTarget) {
         let pk = credential.issuer;
         let e = self.hash(credential, signature);
-        self.schnorr_final_verification(signature.0, e, pk, signature.0.r);
+        self.schnorr_final_verification(signature.0, e, pk);
     }
 }
 
