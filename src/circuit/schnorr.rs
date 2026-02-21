@@ -4,14 +4,17 @@ use plonky2::{
         hash_types::{HashOutTarget, RichField},
         poseidon::PoseidonHash,
     },
-    iop::target::{BoolTarget, Target},
+    iop::{
+        target::{BoolTarget, Target},
+        witness::Witness,
+    },
     plonk::circuit_builder::CircuitBuilder,
 };
 
 use crate::{
     circuit::{
-        curve::{CircuitBuilderCurve, PointTarget},
-        scalar::ScalarTarget,
+        curve::{CircuitBuilderCurve, PartialWitnessCurve, PointTarget},
+        scalar::{CircuitBuilderScalar, PartialWitnessScalar, ScalarTarget},
     },
     encoding::{self, LEN_POINT, LEN_SCALAR},
 };
@@ -19,6 +22,8 @@ use crate::{
 pub type SchnorrTarget = encoding::SchnorrProof<Target, BoolTarget>;
 
 pub trait CircuitBuilderSchnorr<F: RichField + Extendable<D>, const D: usize> {
+    fn add_virtual_schnorr_target(&mut self) -> SchnorrTarget;
+    fn register_schnorr_public_input(&mut self, target: SchnorrTarget);
     fn schnorr_hash_with_message(
         &mut self,
         proof: SchnorrTarget,
@@ -33,9 +38,29 @@ pub trait CircuitBuilderSchnorr<F: RichField + Extendable<D>, const D: usize> {
     );
 }
 
+pub trait PartialWitnessSchnorr<F: RichField>: Witness<F> {
+    fn get_schnorr_target(&self, target: SchnorrTarget) -> encoding::SchnorrProof<F, bool>;
+    fn set_schnorr_target(
+        &mut self,
+        target: SchnorrTarget,
+        value: encoding::SchnorrProof<F, bool>,
+    ) -> anyhow::Result<()>;
+}
+
 impl<F: RichField + Extendable<D>, const D: usize> CircuitBuilderSchnorr<F, D>
     for CircuitBuilder<F, D>
 {
+    fn add_virtual_schnorr_target(&mut self) -> SchnorrTarget {
+        encoding::SchnorrProof {
+            r: self.add_virtual_point_target(),
+            s: self.add_virtual_scalar_target(),
+        }
+    }
+    fn register_schnorr_public_input(&mut self, target: SchnorrTarget) {
+        self.register_point_public_input(target.r);
+        self.register_scalar_public_input(target.s);
+    }
+
     fn schnorr_hash_with_message(
         &mut self,
         proof: SchnorrTarget,
@@ -90,5 +115,22 @@ impl<F: RichField + Extendable<D>, const D: usize> CircuitBuilderSchnorr<F, D>
         let res = self.is_equal_point(lhs, r);
 
         self.assert_one(res.target);
+    }
+}
+
+impl<W: Witness<F>, F: RichField> PartialWitnessSchnorr<F> for W {
+    fn get_schnorr_target(&self, target: SchnorrTarget) -> encoding::SchnorrProof<F, bool> {
+        encoding::SchnorrProof {
+            r: self.get_point_target(target.r),
+            s: self.get_scalar_target(target.s),
+        }
+    }
+    fn set_schnorr_target(
+        &mut self,
+        target: SchnorrTarget,
+        value: encoding::SchnorrProof<F, bool>,
+    ) -> anyhow::Result<()> {
+        self.set_point_target(target.r, value.r)?;
+        self.set_scalar_target(target.s, value.s)
     }
 }

@@ -1,4 +1,3 @@
-use anyhow::Ok;
 use plonky2::{
     field::extension::Extendable,
     hash::hash_types::RichField,
@@ -12,9 +11,8 @@ use plonky2::{
 use crate::{
     circuit::{
         credential::CredentialTarget,
-        curve::{CircuitBuilderCurve, PartialWitnessCurve},
-        scalar::{CircuitBuilderScalar, PartialWitnessScalar, ScalarTarget},
-        schnorr::CircuitBuilderSchnorr,
+        scalar::ScalarTarget,
+        schnorr::{CircuitBuilderSchnorr, PartialWitnessSchnorr},
     },
     encoding::{self, LEN_CREDENTIAL},
 };
@@ -40,14 +38,10 @@ impl<F: RichField + Extendable<D>, const D: usize> CircuitBuilderSignature<F, D>
     for CircuitBuilder<F, D>
 {
     fn add_virtual_signature_target(&mut self) -> SignatureTarget {
-        encoding::Signature(encoding::SchnorrProof {
-            r: self.add_virtual_point_target(),
-            s: self.add_virtual_scalar_target(),
-        })
+        encoding::Signature(self.add_virtual_schnorr_target())
     }
     fn register_signature_public_input(&mut self, target: SignatureTarget) {
-        self.register_point_public_input(target.0.r);
-        self.register_scalar_public_input(target.0.s);
+        self.register_schnorr_public_input(target.0);
     }
     fn hash(&mut self, credential: &CredentialTarget, signature: &SignatureTarget) -> ScalarTarget {
         let credential_input: [Target; LEN_CREDENTIAL] = credential.into();
@@ -62,19 +56,14 @@ impl<F: RichField + Extendable<D>, const D: usize> CircuitBuilderSignature<F, D>
 
 impl<W: Witness<F>, F: RichField> PartialWitnessSignature<F> for W {
     fn get_signature_target(&self, target: SignatureTarget) -> encoding::Signature<F, bool> {
-        encoding::Signature(encoding::SchnorrProof {
-            r: self.get_point_target(target.0.r),
-            s: self.get_scalar_target(target.0.s),
-        })
+        encoding::Signature(self.get_schnorr_target(target.0))
     }
     fn set_signature_target(
         &mut self,
         target: SignatureTarget,
         value: encoding::Signature<F, bool>,
     ) -> anyhow::Result<()> {
-        self.set_point_target(target.0.r, value.0.r)?;
-        self.set_scalar_target(target.0.s, value.0.s)?;
-        Ok(())
+        self.set_schnorr_target(target.0, value.0)
     }
 }
 #[cfg(test)]
@@ -83,7 +72,7 @@ mod tests {
         arith,
         circuit::{
             credential::{CircuitBuilderCredential, PartialWitnessCredential},
-            curve::tests::check_public_input_point,
+            curve::{tests::check_public_input_point, CircuitBuilderCurve},
         },
         core::credential,
         encoding::{
