@@ -7,8 +7,7 @@ use crate::{
         field::{GFp, GFp5},
     },
     encoding::{
-        self, Authentification, Credential, Scalar, SchnorrProof, Signature, LEN_CREDENTIAL,
-        LEN_FIELD, LEN_PASSPORT_NUMBER, LEN_POINT, LEN_SCALAR, LEN_STRING,
+        self, LEN_CREDENTIAL, LEN_FIELD, LEN_PASSPORT_NUMBER, LEN_POINT, LEN_SCALAR, LEN_STRING,
     },
 };
 
@@ -49,7 +48,7 @@ pub trait ToSingleField<F: Field> {
 }
 
 pub trait ToScalarField {
-    fn to_field(&self) -> Scalar<bool>;
+    fn to_field(&self) -> encoding::Scalar<bool>;
 }
 
 pub trait ToGFp5Field<F: Field> {
@@ -57,19 +56,19 @@ pub trait ToGFp5Field<F: Field> {
 }
 
 pub trait ToPointField<F: Field> {
-    fn to_field(&self) -> Point<F>;
+    fn to_field(&self) -> encoding::Point<F>;
 }
 
 pub trait ToSchnorrField<F: Field, B: Copy> {
-    fn to_field(&self) -> SchnorrProof<F, B>;
+    fn to_field(&self) -> encoding::SchnorrProof<F, B>;
 }
 
 pub trait ToSignatureField<F: Field, B: Copy> {
-    fn to_field(&self) -> Signature<F, B>;
+    fn to_field(&self) -> encoding::Signature<F, B>;
 }
 
 pub trait ToAuthentificationField<F: Field, B: Copy> {
-    fn to_field(&self) -> Authentification<F, B>;
+    fn to_field(&self) -> encoding::Authentification<F, B>;
 }
 
 pub trait ToVecField<F: Field> {
@@ -123,8 +122,8 @@ impl<F: Field> ToVecField<F> for &[u8] {
 
 // maybe this name is not appropriate
 impl ToScalarField for arith::Scalar {
-    fn to_field(&self) -> Scalar<bool> {
-        Scalar(self.to_bits_le())
+    fn to_field(&self) -> encoding::Scalar<bool> {
+        encoding::Scalar(self.to_bits_le())
     }
 }
 
@@ -144,7 +143,7 @@ impl<F: Field> ToPointField<F> for arith::Point {
         }
     }
 }
-impl<T: Copy> From<[T; LEN_SCALAR]> for Scalar<T> {
+impl<T: Copy> From<[T; LEN_SCALAR]> for encoding::Scalar<T> {
     fn from(value: [T; LEN_SCALAR]) -> Self {
         Self(value)
     }
@@ -206,8 +205,10 @@ impl<T: Copy> From<Point<T>> for [T; LEN_POINT] {
     }
 }
 
-impl<T: Copy, TBool: Copy + FromBool<T>> From<&Credential<T, TBool>> for [T; LEN_CREDENTIAL] {
-    fn from(value: &Credential<T, TBool>) -> Self {
+impl<T: Copy, TBool: Copy + FromBool<T>> From<&encoding::Credential<T, TBool>>
+    for [T; LEN_CREDENTIAL]
+{
+    fn from(value: &encoding::Credential<T, TBool>) -> Self {
         let mut res = Vec::with_capacity(LEN_CREDENTIAL);
         res.extend(value.first_name.0);
         res.extend(value.family_name.0);
@@ -226,7 +227,9 @@ impl<T: Copy, TBool: Copy + FromBool<T>> From<&Credential<T, TBool>> for [T; LEN
 
 const POS_BIRTH_DATE: usize = LEN_STRING * 3 + LEN_PASSPORT_NUMBER;
 const START_ISSUER: usize = POS_BIRTH_DATE + 4;
-impl<T: Copy + ToBool<TBool>, TBool: Copy> From<&[T; LEN_CREDENTIAL]> for Credential<T, TBool> {
+impl<T: Copy + ToBool<TBool>, TBool: Copy> From<&[T; LEN_CREDENTIAL]>
+    for encoding::Credential<T, TBool>
+{
     fn from(value: &[T; LEN_CREDENTIAL]) -> Self {
         let first_name: [T; LEN_STRING] = value[0..LEN_STRING].try_into().unwrap();
         let family_name: [T; LEN_STRING] = value[LEN_STRING..LEN_STRING * 2].try_into().unwrap();
