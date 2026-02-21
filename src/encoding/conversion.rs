@@ -71,6 +71,10 @@ pub trait ToAuthentificationField<F: Field, B: Copy> {
     fn to_field(&self) -> encoding::Authentification<F, B>;
 }
 
+pub trait ToAuthentificationContextField<F: Field> {
+    fn to_field(&self) -> encoding::AuthentificationContext<F>;
+}
+
 pub trait ToVecField<F: Field> {
     /// Buids a Vec<F> of expected_len size; if the provided bytes sequence
     /// is too small, the result will be padded with zeroes; if it’s too big,

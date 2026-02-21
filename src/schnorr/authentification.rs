@@ -2,7 +2,9 @@ use plonky2::field::goldilocks_field::GoldilocksField;
 use plonky2::hash::hash_types::RichField;
 
 use crate::encoding;
+use crate::encoding::conversion::ToAuthentificationContextField;
 use crate::encoding::conversion::ToAuthentificationField;
+use crate::encoding::conversion::ToPointField;
 use crate::encoding::conversion::ToSchnorrField;
 use crate::encoding::conversion::ToVecField;
 use crate::encoding::LEN_STRING;
@@ -71,6 +73,17 @@ impl<F: RichField> ToAuthentificationField<F, bool> for Authentification {
         encoding::Authentification(self.0.to_field())
     }
 }
+
+impl<F: RichField> ToAuthentificationContextField<F> for Context {
+    fn to_field(&self) -> encoding::AuthentificationContext<F> {
+        encoding::AuthentificationContext {
+            public_key: self.public_key.0.to_field(),
+            service: encoding::String(self.service.map(|x| F::from_canonical_u64(x.0))),
+            nonce: encoding::String(self.nonce.map(|x| F::from_canonical_u64(x.0))),
+        }
+    }
+}
+
 #[cfg(test)]
 mod tests {
     use super::{Authentification, Context};
