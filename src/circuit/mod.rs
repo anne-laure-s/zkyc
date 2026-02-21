@@ -16,6 +16,7 @@ use crate::core::credential::Credential;
 use crate::encoding::conversion::ToSignatureField;
 use crate::schnorr::signature::Signature;
 
+pub(crate) mod authentification;
 pub(crate) mod credential;
 pub(crate) mod curve;
 pub(crate) mod gfp5;
