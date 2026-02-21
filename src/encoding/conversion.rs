@@ -106,19 +106,22 @@ impl<F: Field> ToSingleField<F> for GFp {
     }
 }
 
+// TODO: instead of writing 4 u8 on 1 u32, we could write 7 u8 in 1 u64 (if this fits in modulo)
 impl<F: Field> ToVecField<F> for &[u8] {
     fn to_field(&self, expected_len: usize) -> Vec<F> {
-        assert!(expected_len > 0);
+        let required_len = self.len().div_ceil(4);
+        assert!(
+            required_len <= expected_len,
+            "input too long: {} bytes require {} field elements, expected {}",
+            self.len(),
+            required_len,
+            expected_len
+        );
         let mut res = vec![F::ZERO; expected_len];
-        let mut count = 0;
-        for chunk in self.chunks(4) {
+        for (count, chunk) in self.chunks(4).enumerate() {
             let mut buf = [0u8; 4];
             buf[..chunk.len()].copy_from_slice(chunk);
             res[count] = F::from_canonical_u32(u32::from_le_bytes(buf));
-            count += 1;
-            if count == expected_len {
-                return res;
-            }
         }
         res
     }
