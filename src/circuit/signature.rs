@@ -249,7 +249,7 @@ mod tests {
         let proof = data.prove(pw).unwrap();
 
         let e_native =
-            schnorr::transcript::hash(&sig0.0.r, schnorr::transcript::Context::Sig(&ctx));
+            schnorr::transcript::hash(&sig0.0.get_nonce(), schnorr::transcript::Context::Sig(&ctx));
 
         let public_inputs: [F; LEN_SCALAR] = proof.public_inputs.try_into().unwrap();
         let e_circuit = arith::Scalar::from_bits_le(&public_inputs.map(|x| F::is_one(&x)));

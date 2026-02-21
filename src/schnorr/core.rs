@@ -21,6 +21,10 @@ pub struct SchnorrProof {
 }
 
 impl SchnorrProof {
+    pub fn get_nonce(&self) -> Point {
+        self.r
+    }
+
     /// returns a proof of knowledge of a secret key for the corresponding public key
     pub fn prove(sk: &SecretKey, ctx: Context) -> Self {
         // TODO: handle the error more carefully
