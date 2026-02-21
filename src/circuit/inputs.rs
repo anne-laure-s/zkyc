@@ -13,7 +13,6 @@ use crate::{
         credential::CircuitBuilderCredential,
         curve::PartialWitnessCurve,
         passport_number::PartialWitnessPassportNumber,
-        scalar::PartialWitnessScalar,
         signature::{CircuitBuilderSignature, PartialWitnessSignature},
         string::PartialWitnessString,
     },
