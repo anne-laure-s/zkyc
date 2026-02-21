@@ -7,8 +7,8 @@ use crate::{
         field::{GFp, GFp5},
     },
     encoding::{
-        self, Credential, Scalar, Signature, LEN_CREDENTIAL, LEN_FIELD, LEN_PASSPORT_NUMBER,
-        LEN_POINT, LEN_SCALAR, LEN_STRING,
+        self, Authentification, Credential, Scalar, SchnorrProof, Signature, LEN_CREDENTIAL,
+        LEN_FIELD, LEN_PASSPORT_NUMBER, LEN_POINT, LEN_SCALAR, LEN_STRING,
     },
 };
 
@@ -60,8 +60,16 @@ pub trait ToPointField<F: Field> {
     fn to_field(&self) -> Point<F>;
 }
 
+pub trait ToSchnorrField<F: Field, B: Copy> {
+    fn to_field(&self) -> SchnorrProof<F, B>;
+}
+
 pub trait ToSignatureField<F: Field, B: Copy> {
     fn to_field(&self) -> Signature<F, B>;
+}
+
+pub trait ToAuthentificationField<F: Field, B: Copy> {
+    fn to_field(&self) -> Authentification<F, B>;
 }
 
 pub trait ToVecField<F: Field> {

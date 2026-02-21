@@ -66,3 +66,6 @@ pub struct SchnorrProof<T, TBool> {
 
 #[derive(Clone, Copy, Debug)]
 pub struct Signature<T, TBool>(pub(crate) SchnorrProof<T, TBool>);
+
+#[derive(Clone, Copy, Debug)]
+pub struct Authentification<T, TBool>(pub(crate) SchnorrProof<T, TBool>);

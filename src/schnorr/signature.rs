@@ -3,7 +3,7 @@ use plonky2::hash::hash_types::RichField;
 
 use crate::core::credential::Credential;
 use crate::encoding;
-use crate::encoding::conversion::ToSignatureField;
+use crate::encoding::conversion::{ToSchnorrField, ToSignatureField};
 
 use super::core::SchnorrProof;
 /// Signature will be used by the authority to sign the credential
@@ -57,8 +57,8 @@ impl Signature {
 }
 
 impl<F: RichField> ToSignatureField<F, bool> for Signature {
-    fn to_field(&self) -> crate::encoding::Signature<F, bool> {
-        self.0.to_field()
+    fn to_field(&self) -> encoding::Signature<F, bool> {
+        encoding::Signature(self.0.to_field())
     }
 }
 

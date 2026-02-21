@@ -6,8 +6,8 @@ use plonky2::hash::hash_types::RichField;
 use crate::{
     arith::{Point, Scalar},
     encoding::{
-        conversion::{ToPointField, ToSignatureField},
-        Signature,
+        self,
+        conversion::{ToPointField, ToSchnorrField},
     },
     schnorr::{
         keys::SecretKey,
@@ -15,10 +15,9 @@ use crate::{
     },
 };
 
-// TODO: faire de la signature une schnorr proof plutôt que l’inverse
 pub struct SchnorrProof {
-    pub r: Point,
-    pub s: Scalar,
+    r: Point,
+    s: Scalar,
 }
 
 impl SchnorrProof {
@@ -44,11 +43,11 @@ impl SchnorrProof {
     }
 }
 
-impl<F: RichField> ToSignatureField<F, bool> for SchnorrProof {
-    fn to_field(&self) -> Signature<F, bool> {
-        Signature {
+impl<F: RichField> ToSchnorrField<F, bool> for SchnorrProof {
+    fn to_field(&self) -> encoding::SchnorrProof<F, bool> {
+        encoding::SchnorrProof {
             r: self.r.to_field(),
-            s: crate::encoding::Scalar(self.s.to_bits_le()),
+            s: encoding::Scalar(self.s.to_bits_le()),
         }
     }
 }
