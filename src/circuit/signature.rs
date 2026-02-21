@@ -77,19 +77,16 @@ mod tests {
         core::credential,
         encoding::{
             conversion::{ToPointField, ToSignatureField},
-            LEN_FIELD, LEN_SCALAR,
+            LEN_FIELD,
         },
-        schnorr::{
-            self,
-            signature::{self, Context},
-        },
+        schnorr::signature::{self, Context},
     };
 
     use rand::{rngs::StdRng, SeedableRng};
 
     use super::*;
     use plonky2::{
-        field::{goldilocks_field::GoldilocksField as F, types::Field},
+        field::goldilocks_field::GoldilocksField as F,
         iop::witness::PartialWitness,
         plonk::{circuit_data::CircuitConfig, config::PoseidonGoldilocksConfig},
     };
@@ -207,41 +204,5 @@ mod tests {
         let proof = data.prove(pw).expect("prove should pass");
         data.verify(proof.clone()).expect("verify should pass");
         check_public_input_point(&proof.public_inputs, expected_issuer);
-    }
-
-    #[test]
-    fn test_hash_e_matches_native() {
-        let mut builder = CircuitBuilder::<F, D>::new(CircuitConfig::default());
-
-        let mut rng = StdRng::from_os_rng();
-        let (sk, credential0) = credential::Credential::random(&mut rng);
-        let ctx = Context::new(&credential0);
-        let sig0 = signature::Signature::sign(&sk, &ctx);
-
-        let credential = credential0.to_field();
-        let sig = sig0.to_field();
-
-        let credential_t = builder.add_virtual_credential_target();
-        let sig_t = builder.add_virtual_signature_target();
-
-        // calcule e dans le circuit et expose ses bits
-        let e_t = builder.hash(&credential_t, &sig_t);
-        for b in e_t.0.iter() {
-            builder.register_public_input(b.target);
-        }
-
-        let mut pw = PartialWitness::<F>::new();
-        pw.set_credential_target(credential_t, credential).unwrap();
-        pw.set_signature_target(sig_t, sig).unwrap();
-
-        let data = builder.build::<Cfg>();
-        let proof = data.prove(pw).unwrap();
-
-        let e_native =
-            schnorr::transcript::hash(&sig0.0.get_nonce(), schnorr::transcript::Context::Sig(&ctx));
-
-        let public_inputs: [F; LEN_SCALAR] = proof.public_inputs.try_into().unwrap();
-        let e_circuit = arith::Scalar::from_bits_le(&public_inputs.map(|x| F::is_one(&x)));
-        assert!(e_native.equals(e_circuit) == u64::MAX)
     }
 }

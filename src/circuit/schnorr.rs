@@ -132,3 +132,66 @@ impl<W: Witness<F>, F: RichField> PartialWitnessSchnorr<F> for W {
         self.set_scalar_target(target.s, value.s)
     }
 }
+
+#[cfg(test)]
+mod tests {
+    use crate::{
+        arith,
+        circuit::credential::{CircuitBuilderCredential, PartialWitnessCredential},
+        core::credential,
+        encoding::{conversion::ToSchnorrField, LEN_CREDENTIAL, LEN_SCALAR},
+        schnorr::{
+            self,
+            signature::{self, Context},
+        },
+    };
+
+    use rand::{rngs::StdRng, SeedableRng};
+
+    use super::*;
+    use plonky2::{
+        field::{goldilocks_field::GoldilocksField as F, types::Field},
+        iop::witness::PartialWitness,
+        plonk::{circuit_data::CircuitConfig, config::PoseidonGoldilocksConfig},
+    };
+
+    const D: usize = 2;
+    type Cfg = PoseidonGoldilocksConfig;
+
+    #[test]
+    fn test_hash_e_matches_native() {
+        let mut builder = CircuitBuilder::<F, D>::new(CircuitConfig::default());
+
+        let mut rng = StdRng::from_os_rng();
+        let (sk, credential0) = credential::Credential::random(&mut rng);
+        let ctx = Context::new(&credential0);
+        let sig0 = signature::Signature::sign(&sk, &ctx);
+
+        let credential = credential0.to_field();
+        let sig = sig0.0.to_field();
+
+        let credential_t = builder.add_virtual_credential_target();
+        let sig_t = builder.add_virtual_schnorr_target();
+
+        let message: [Target; LEN_CREDENTIAL] = (&credential_t).into();
+
+        let e_t = builder.schnorr_hash_with_message(sig_t, &message);
+        for b in e_t.0.iter() {
+            builder.register_public_input(b.target);
+        }
+
+        let mut pw = PartialWitness::<F>::new();
+        pw.set_credential_target(credential_t, credential).unwrap();
+        pw.set_schnorr_target(sig_t, sig).unwrap();
+
+        let data = builder.build::<Cfg>();
+        let proof = data.prove(pw).unwrap();
+
+        let e_native =
+            schnorr::transcript::hash(&sig0.0.get_nonce(), schnorr::transcript::Context::Sig(&ctx));
+
+        let public_inputs: [F; LEN_SCALAR] = proof.public_inputs.try_into().unwrap();
+        let e_circuit = arith::Scalar::from_bits_le(&public_inputs.map(|x| F::is_one(&x)));
+        assert!(e_native.equals(e_circuit) == u64::MAX)
+    }
+}
