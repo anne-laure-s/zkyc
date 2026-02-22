@@ -16,16 +16,16 @@ use crate::core::credential::Credential;
 use crate::encoding::conversion::ToSignatureField;
 use crate::schnorr::signature::Signature;
 
-pub(crate) mod authentification;
-pub(crate) mod credential;
-pub(crate) mod curve;
-pub(crate) mod gfp5;
-pub(crate) mod inputs;
-pub(crate) mod passport_number;
-pub(crate) mod scalar;
-pub(crate) mod schnorr;
-pub(crate) mod signature;
-pub(crate) mod string;
+pub mod authentification;
+pub mod credential;
+pub mod curve;
+pub mod gfp5;
+pub mod inputs;
+pub mod passport_number;
+pub mod scalar;
+pub mod schnorr;
+pub mod signature;
+pub mod string;
 
 const D: usize = 2;
 type C = PoseidonGoldilocksConfig;
@@ -79,6 +79,10 @@ impl Builder {
             &self.private_inputs.credential,
             &self.private_inputs.signature,
         )
+    }
+
+    pub(crate) fn check_authentification(&mut self) {
+        unimplemented!()
     }
 }
 

@@ -1,11 +1,11 @@
-pub(crate) mod arith;
-pub(crate) mod bank;
-pub(crate) mod circuit;
-pub(crate) mod client;
-pub(crate) mod core;
-pub(crate) mod encoding;
-pub(crate) mod issuer;
-pub(crate) mod schnorr;
+pub mod arith;
+pub mod bank;
+pub mod circuit;
+pub mod client;
+pub mod core;
+pub mod encoding;
+pub mod issuer;
+pub mod schnorr;
 
 #[cfg(test)]
 mod tests {

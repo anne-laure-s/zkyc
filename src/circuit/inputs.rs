@@ -31,7 +31,7 @@ pub struct Public<T> {
     pub(crate) nationality: T,
     pub(crate) issuer_pk: encoding::Point<T>,
 }
-pub(crate) struct Private<T, TBool> {
+pub struct Private<T, TBool> {
     pub(crate) credential: encoding::Credential<T, TBool>,
     pub(crate) signature: encoding::Signature<T, TBool>,
 }
