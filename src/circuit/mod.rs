@@ -75,7 +75,7 @@ impl Builder {
     }
 
     pub(crate) fn check_signature(&mut self) {
-        self.builder.verify(
+        self.builder.verify_signature(
             &self.private_inputs.credential,
             &self.private_inputs.signature,
         )

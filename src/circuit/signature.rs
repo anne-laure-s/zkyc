@@ -22,8 +22,12 @@ pub type SignatureTarget = encoding::Signature<Target, BoolTarget>;
 pub trait CircuitBuilderSignature<F: RichField + Extendable<D>, const D: usize> {
     fn add_virtual_signature_target(&mut self) -> SignatureTarget;
     fn register_signature_public_input(&mut self, target: SignatureTarget);
-    fn hash(&mut self, credential: &CredentialTarget, signature: &SignatureTarget) -> ScalarTarget;
-    fn verify(&mut self, credential: &CredentialTarget, signature: &SignatureTarget);
+    fn hash_signature(
+        &mut self,
+        credential: &CredentialTarget,
+        signature: &SignatureTarget,
+    ) -> ScalarTarget;
+    fn verify_signature(&mut self, credential: &CredentialTarget, signature: &SignatureTarget);
 }
 pub trait PartialWitnessSignature<F: RichField>: Witness<F> {
     fn get_signature_target(&self, target: SignatureTarget) -> encoding::Signature<F, bool>;
@@ -43,13 +47,17 @@ impl<F: RichField + Extendable<D>, const D: usize> CircuitBuilderSignature<F, D>
     fn register_signature_public_input(&mut self, target: SignatureTarget) {
         self.register_schnorr_public_input(target.0);
     }
-    fn hash(&mut self, credential: &CredentialTarget, signature: &SignatureTarget) -> ScalarTarget {
+    fn hash_signature(
+        &mut self,
+        credential: &CredentialTarget,
+        signature: &SignatureTarget,
+    ) -> ScalarTarget {
         let credential_input: [Target; LEN_CREDENTIAL] = credential.into();
         self.schnorr_hash_with_message(signature.0, &credential_input)
     }
-    fn verify(&mut self, credential: &CredentialTarget, signature: &SignatureTarget) {
+    fn verify_signature(&mut self, credential: &CredentialTarget, signature: &SignatureTarget) {
         let pk = credential.issuer;
-        let e = self.hash(credential, signature);
+        let e = self.hash_signature(credential, signature);
         self.schnorr_final_verification(signature.0, e, pk);
     }
 }
@@ -190,7 +198,7 @@ mod tests {
 
         builder.register_point_public_input(credential_t.issuer);
 
-        builder.verify(&credential_t, &signature_t);
+        builder.verify_signature(&credential_t, &signature_t);
 
         // Witness
         let mut pw = PartialWitness::<F>::new();
