@@ -1,4 +1,3 @@
-use anyhow::Ok;
 use plonky2::{
     field::extension::Extendable,
     hash::hash_types::RichField,
@@ -11,8 +10,8 @@ use plonky2::{
 
 use crate::{
     circuit::{
-        curve::{CircuitBuilderCurve, PartialWitnessCurve, PointTarget},
-        schnorr::{CircuitBuilderSchnorr, PartialWitnessSchnorr, SchnorrTarget},
+        curve::{CircuitBuilderCurve, PartialWitnessCurve},
+        schnorr::{CircuitBuilderSchnorr, PartialWitnessSchnorr},
         string::{CircuitBuilderString, PartialWitnessString},
     },
     encoding::{self, LEN_POINT, LEN_STRING},
@@ -158,7 +157,7 @@ mod tests {
 
     use crate::{
         encoding::{
-            conversion::{ToAuthentificationField, ToPointField, ToSignatureField},
+            conversion::{ToAuthentificationField, ToPointField},
             LEN_SCALAR,
         },
         schnorr::{
