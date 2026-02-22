@@ -190,7 +190,7 @@ impl FrenchPassportNumber {
             .for_each(|z| *z = b'0' + rng.random_range(0..10) as u8);
         FrenchPassportNumber(res)
     }
-    fn check(&self) -> bool {
+    fn _check(&self) -> bool {
         self.0[0..2].iter().all(u8::is_ascii_digit)
             && self.0[2..4].iter().all(u8::is_ascii_uppercase)
             && self.0[4..9].iter().all(u8::is_ascii_digit)
