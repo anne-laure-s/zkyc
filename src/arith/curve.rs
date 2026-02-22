@@ -273,7 +273,7 @@ impl Point {
         (self.U * rhs.T).equals(rhs.U * self.T)
     }
 
-    pub fn to_affine(&self) -> PointAffine {
+    pub(crate) fn to_affine(self) -> PointAffine {
         let m1 = (self.Z * self.T).invert();
         PointAffine {
             x: self.X * self.T * m1,
