@@ -35,6 +35,7 @@ impl Point {
     // Curve equation 'b' constant is equal to B1*z.
     pub const B1: u32 = 263;
 
+    #[allow(dead_code)]
     // Curve equation 'b' constant.
     const B: GFp5 = GFp5([
         GFp::ZERO,
