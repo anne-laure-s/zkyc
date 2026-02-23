@@ -30,7 +30,7 @@ pub struct Credential {
     nationality: Nationality,
     passport_number: PassportNumber,
     expiration_date: NaiveDate,
-    issuer: Issuer, // TODO: public_key instead
+    issuer: Issuer
 }
 
 // ----
