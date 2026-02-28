@@ -9,53 +9,62 @@ use plonky2::{
 };
 
 use crate::{
+    bank,
     circuit::{
         credential::{CircuitBuilderCredential, PartialWitnessCredential},
         curve::PartialWitnessCurve,
         signature::{CircuitBuilderSignature, PartialWitnessSignature},
+        string::{CircuitBuilderString, PartialWitnessString},
     },
     core::{credential::Nationality, date::cutoff18_from_today_for_tests},
     encoding::{
         self,
-        conversion::{ToPointField, ToSingleField},
-        LEN_CREDENTIAL, LEN_POINT,
+        conversion::{ToPointField, ToSingleField, ToStringField},
+        LEN_CREDENTIAL, LEN_POINT, LEN_STRING,
     },
     issuer,
     schnorr::keys::PublicKey,
 };
 
 pub struct Public<T> {
-    // TODO: authentification nonce and service
     pub(crate) cutoff18_days: T,
     pub(crate) nationality: T,
     pub(crate) issuer_pk: encoding::Point<T>,
+    pub(crate) nonce: encoding::String<T>,
+    pub(crate) service: encoding::String<T>,
 }
 pub struct Private<T, TBool> {
     pub(crate) credential: encoding::Credential<T, TBool>,
     pub(crate) signature: encoding::Signature<T, TBool>,
 }
 
-pub const LEN_PUBLIC_INPUTS: usize = 1 + 1 + LEN_POINT;
+pub const LEN_PUBLIC_INPUTS: usize = 1 + 1 + LEN_POINT + LEN_STRING * 2;
 
 /// len(credential) + len(signature.r); signature.s is BoolTarget so it's
 /// processed differently
 pub const LEN_PRIVATE_INPUTS: usize = LEN_CREDENTIAL + LEN_POINT;
 
-/// Registers credential and signature, and registers nationality and
-/// issuer as public inputs
+/// Registers credential and signature, and registers nationality, issuer,
+/// nonce & service as public inputs
 pub fn register<F: RichField + Extendable<D>, const D: usize>(
     builder: &mut CircuitBuilder<F, D>,
 ) -> (Public<Target>, Private<Target, BoolTarget>) {
     let credential = builder.add_virtual_credential_target();
-    builder.register_credential_public_input(credential);
     let signature = builder.add_virtual_signature_target();
     let cutoff18_days = builder.add_virtual_target();
+    let nonce = builder.add_virtual_string_target();
+    let service = builder.add_virtual_string_target();
+    builder.register_credential_public_input(credential);
     builder.register_public_input(cutoff18_days);
+    builder.register_string_public_input(nonce);
+    builder.register_string_public_input(service);
     (
         Public {
             cutoff18_days,
             nationality: credential.nationality,
             issuer_pk: credential.issuer,
+            nonce,
+            service,
         },
         Private {
             credential,
@@ -81,8 +90,8 @@ impl<F: RichField> Public<F> {
         pw.set_target(targets.nationality, self.nationality)?;
         pw.set_point_target(targets.issuer_pk, self.issuer_pk)?;
         pw.set_target(targets.cutoff18_days, self.cutoff18_days)?;
-
-        Ok(())
+        pw.set_string_target(targets.nonce, self.nonce)?;
+        pw.set_string_target(targets.service, self.service)
     }
 
     // TODO: distinguish error from proof verification & public input checks
@@ -112,6 +121,8 @@ impl<F: RichField> Public<F> {
             cutoff18_days: cutoff18_from_today_for_tests().to_field(),
             nationality: Nationality::FR.to_field(),
             issuer_pk: issuer::keys::public().0.to_field(),
+            nonce: bank::nonce().to_field(),
+            service: bank::service().to_field(),
         }
     }
 
@@ -120,6 +131,8 @@ impl<F: RichField> Public<F> {
             cutoff18_days: cutoff18_from_today_for_tests().to_field(),
             nationality: Nationality::FR.to_field(),
             issuer_pk: issuer_pk.0.to_field(),
+            nonce: bank::nonce().to_field(),
+            service: bank::service().to_field(),
         }
     }
 }

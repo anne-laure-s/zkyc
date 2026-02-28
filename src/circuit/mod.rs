@@ -11,6 +11,7 @@ use plonky2::{
     },
 };
 
+use crate::circuit::authentification::CircuitBuilderAuthentification;
 use crate::circuit::signature::CircuitBuilderSignature;
 use crate::core::credential::Credential;
 use crate::encoding::conversion::ToSignatureField;
@@ -82,6 +83,7 @@ impl Builder {
     }
 
     pub(crate) fn check_authentification(&mut self) {
+        // self.builder.verify_authentification(ctx, auth);
         unimplemented!()
     }
 }
@@ -140,9 +142,10 @@ mod tests {
 
     use super::{circuit, inputs, prove, verify, F};
     use crate::{
+        bank,
         circuit::Circuit,
         core::{credential::Credential, date::cutoff18_from_today_for_tests},
-        encoding::conversion::{ToPointField, ToSingleField},
+        encoding::conversion::{ToPointField, ToSingleField, ToStringField},
         issuer,
         schnorr::{
             keys::SecretKey,
@@ -155,6 +158,8 @@ mod tests {
             cutoff18_days: cutoff18_from_today_for_tests().to_field(),
             nationality: credential.nationality().to_field(),
             issuer_pk: credential.issuer().0.to_field(),
+            nonce: bank::nonce().to_field(),
+            service: bank::service().to_field(),
         }
     }
 
