@@ -163,7 +163,7 @@ mod tests {
         let mut builder = CircuitBuilder::<F, D>::new(CircuitConfig::default());
 
         let mut rng = StdRng::from_os_rng();
-        let (sk, credential0) = credential::Credential::random(&mut rng);
+        let (_, sk, credential0) = credential::Credential::random(&mut rng);
         let ctx = Context::new(&credential0);
         let sig0 = signature::Signature::sign(&sk, &ctx);
 

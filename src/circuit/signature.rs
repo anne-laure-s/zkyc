@@ -184,7 +184,7 @@ mod tests {
 
         let mut rng = StdRng::from_os_rng();
 
-        let (sk, credential) = credential::Credential::random(&mut rng);
+        let (_, sk, credential) = credential::Credential::random(&mut rng);
         let ctx = Context::new(&credential);
         let signature = signature::Signature::sign(&sk, &ctx);
 

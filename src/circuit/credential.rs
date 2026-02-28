@@ -53,6 +53,7 @@ impl<F: RichField + Extendable<D>, const D: usize> CircuitBuilderCredential<F, D
             gender: self.add_virtual_bool_target_safe(),
             nationality: self.add_virtual_target(),
             issuer: self.add_virtual_point_target(),
+            public_key: self.add_virtual_point_target(),
         }
     }
     fn register_credential_public_input(&mut self, target: CredentialTarget) {
@@ -73,6 +74,7 @@ impl<W: Witness<F>, F: RichField> PartialWitnessCredential<F> for W {
             gender: self.get_bool_target(target.gender),
             nationality: self.get_target(target.nationality),
             issuer: self.get_point_target(target.issuer),
+            public_key: self.get_point_target(target.public_key),
         }
     }
     fn set_credential_target(
@@ -88,6 +90,7 @@ impl<W: Witness<F>, F: RichField> PartialWitnessCredential<F> for W {
         self.set_target(target.expiration_date, value.expiration_date)?;
         self.set_bool_target(target.gender, value.gender)?;
         self.set_target(target.nationality, value.nationality)?;
-        self.set_point_target(target.issuer, value.issuer)
+        self.set_point_target(target.issuer, value.issuer)?;
+        self.set_point_target(target.public_key, value.public_key)
     }
 }

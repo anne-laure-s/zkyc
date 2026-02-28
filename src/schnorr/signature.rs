@@ -70,7 +70,7 @@ mod tests {
 
     fn credential_from_seed(seed: u64) -> (SecretKey, Credential) {
         let mut rng = StdRng::seed_from_u64(seed);
-        let (sk, credential) = Credential::random(&mut rng);
+        let (_, sk, credential) = Credential::random(&mut rng);
         (sk, credential)
     }
 
@@ -78,7 +78,7 @@ mod tests {
         seed: u64,
     ) -> (SecretKey, Credential, SecretKey, Credential) {
         let mut rng = StdRng::seed_from_u64(seed);
-        let (sk1, cred1) = Credential::random(&mut rng);
+        let (_, sk1, cred1) = Credential::random(&mut rng);
         let sk2 = SecretKey::random(&mut rng);
         let mut rng = StdRng::seed_from_u64(seed);
         let cred2 = Credential::random_with_issuer(&sk2, &mut rng);

@@ -13,7 +13,7 @@ pub const LEN_POINT: usize = 4 * LEN_FIELD;
 pub const LEN_SCALAR: usize = arith::Scalar::NB_BITS;
 
 /// size of a credential<T> in number of T elements
-pub const LEN_CREDENTIAL: usize = 3 * LEN_STRING + LEN_PASSPORT_NUMBER + 4 + LEN_POINT;
+pub const LEN_CREDENTIAL: usize = 3 * LEN_STRING + LEN_PASSPORT_NUMBER + 4 + LEN_POINT * 2;
 
 pub const LEN_SIGNATURE: usize = LEN_POINT + LEN_SCALAR;
 
@@ -37,6 +37,7 @@ pub struct Credential<T, TBool> {
     pub gender: TBool, // boolean
     pub nationality: T,
     pub issuer: Point<T>,
+    pub public_key: Point<T>,
 }
 
 // 1 u32 = 4 ascii chars

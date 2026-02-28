@@ -5,6 +5,7 @@ use plonky2::field::types::Field;
 use rand::Rng;
 
 use crate::{
+    client,
     core::date::{
         days_from_origin, generate_birth_date, generate_birth_date_minor, generate_expiration_date,
     },
@@ -30,7 +31,8 @@ pub struct Credential {
     nationality: Nationality,
     passport_number: PassportNumber,
     expiration_date: NaiveDate,
-    issuer: Issuer
+    issuer: Issuer,
+    public_key: PublicKey, // User's public key for authentification
 }
 
 // ----
@@ -216,7 +218,7 @@ impl Credential {
     pub fn birth_date(&self) -> &NaiveDate {
         &self.birth_date
     }
-    pub fn random(rng: &mut impl Rng) -> (SecretKey, Self) {
+    pub fn random(rng: &mut impl Rng) -> (SecretKey, SecretKey, Self) {
         fn generate_name(rng: &mut impl Rng) -> String {
             let len = rng.random_range(3..20);
             let mut res = String::with_capacity(len);
@@ -228,7 +230,10 @@ impl Credential {
         }
         let sk = SecretKey::random(rng);
         let issuer = Issuer(PublicKey::from(&sk));
+        let sk_client = SecretKey::random(rng);
+        let public_key = PublicKey::from(&sk_client);
         (
+            sk_client,
             sk,
             Credential {
                 first_name: Name(generate_name(rng)),
@@ -240,11 +245,12 @@ impl Credential {
                 passport_number: PassportNumber::rnd(rng),
                 expiration_date: generate_expiration_date(rng),
                 issuer,
+                public_key,
             },
         )
     }
     pub fn random_with_issuer(sk: &SecretKey, rng: &mut impl Rng) -> Self {
-        let (_sk, mut credential) = Self::random(rng);
+        let (_sk_client, _sk, mut credential) = Self::random(rng);
         let pk = PublicKey::from(sk);
         credential.issuer = Issuer(pk);
         credential
@@ -269,6 +275,7 @@ impl Credential {
             passport_number: PassportNumber::rnd(rng),
             expiration_date: generate_expiration_date(rng),
             issuer: Issuer(issuer::keys::public()),
+            public_key: client::keys::public(),
         }
     }
     pub fn switch_names_char(&mut self) {
@@ -335,6 +342,7 @@ impl Credential {
             passport_number: encoding::PassportNumber(self.passport_number.to_field()),
             expiration_date: self.expiration_date.to_field(),
             issuer: self.issuer.to_field(),
+            public_key: self.public_key.0.to_field(),
         }
     }
 }

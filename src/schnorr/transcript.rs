@@ -93,7 +93,9 @@ mod tests {
         Point::mulgen(k)
     }
 
-    fn sk_credential_from_seed(seed: u64) -> (SecretKey, crate::core::credential::Credential) {
+    fn sk_credential_from_seed(
+        seed: u64,
+    ) -> (SecretKey, SecretKey, crate::core::credential::Credential) {
         let mut rng = StdRng::seed_from_u64(seed);
         crate::core::credential::Credential::random(&mut rng)
     }
@@ -103,7 +105,7 @@ mod tests {
         crate::core::credential::Credential,
         crate::core::credential::Credential,
     ) {
-        let (sk, mut c2) = sk_credential_from_seed(12345);
+        let (_, sk, mut c2) = sk_credential_from_seed(12345);
         let c1 = c2.clone();
         c2.switch_names_char();
         (sk, c1, c2)
@@ -168,7 +170,7 @@ mod tests {
             "authentification challenge must depend on the public key"
         );
 
-        let (_sk, cred_pk1) = sk_credential_from_seed(4555);
+        let (_, _sk, cred_pk1) = sk_credential_from_seed(4555);
         let mut cred_pk2 = cred_pk1.clone();
         let mut rng = StdRng::seed_from_u64(556);
         cred_pk2.switch_issuer(&mut rng);

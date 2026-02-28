@@ -18,7 +18,7 @@ mod tests {
     #[test]
     fn it_works() {
         let mut rng = StdRng::from_os_rng();
-        let (sk, credential) = Credential::random(&mut rng);
+        let (_, sk, credential) = Credential::random(&mut rng);
         let ctx = Context::new(&credential);
         let signature = Signature::sign(&sk, &ctx);
         let b = signature.verify(&ctx);

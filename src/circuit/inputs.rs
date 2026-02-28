@@ -27,6 +27,7 @@ use crate::{
 };
 
 pub struct Public<T> {
+    // TODO: authentification nonce and service
     pub(crate) cutoff18_days: T,
     pub(crate) nationality: T,
     pub(crate) issuer_pk: encoding::Point<T>,
@@ -89,6 +90,7 @@ impl<F: RichField> Private<F, bool> {
                 self.credential.expiration_date,
             )?;
             pw.set_bool_target(targets.credential.gender, self.credential.gender)?;
+            pw.set_point_target(targets.credential.public_key, self.credential.public_key)?;
         }
         // signature
         {

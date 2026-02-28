@@ -225,8 +225,10 @@ impl<T: Copy, TBool: Copy + FromBool<T>> From<&encoding::Credential<T, TBool>>
         res.push(value.expiration_date);
         res.push(value.gender.from_bool());
         res.push(value.nationality);
-        let point: [T; LEN_POINT] = value.issuer.into();
-        res.extend(point);
+        let issuer: [T; LEN_POINT] = value.issuer.into();
+        res.extend(issuer);
+        let public_key: [T; LEN_POINT] = value.public_key.into();
+        res.extend(public_key);
         res.try_into()
             .unwrap_or_else(|_| panic!("Given credential don't fit the right length"))
     }
@@ -245,7 +247,10 @@ impl<T: Copy + ToBool<TBool>, TBool: Copy> From<&[T; LEN_CREDENTIAL]>
         let passport_number = value[LEN_STRING * 3..LEN_STRING * 3 + LEN_PASSPORT_NUMBER]
             .try_into()
             .unwrap();
-        let issuer: [T; LEN_POINT] = value[START_ISSUER..].try_into().unwrap();
+        let issuer: [T; LEN_POINT] = value[START_ISSUER..START_ISSUER + LEN_POINT]
+            .try_into()
+            .unwrap();
+        let public_key: [T; LEN_POINT] = value[START_ISSUER + LEN_POINT..].try_into().unwrap();
 
         Self {
             first_name: encoding::String(first_name),
@@ -257,6 +262,7 @@ impl<T: Copy + ToBool<TBool>, TBool: Copy> From<&[T; LEN_CREDENTIAL]>
             gender: value[POS_BIRTH_DATE + 2].to_bool(),
             nationality: value[POS_BIRTH_DATE + 3],
             issuer: issuer.into(),
+            public_key: public_key.into(),
         }
     }
 }
