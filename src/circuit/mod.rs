@@ -11,10 +11,13 @@ use plonky2::{
     },
 };
 
-use crate::circuit::authentification::CircuitBuilderAuthentification;
+use crate::circuit::authentification::{
+    AuthentificationContextTarget, CircuitBuilderAuthentification,
+};
 use crate::circuit::signature::CircuitBuilderSignature;
 use crate::core::credential::Credential;
-use crate::encoding::conversion::ToSignatureField;
+use crate::encoding::conversion::{ToAuthentificationField, ToSignatureField};
+use crate::schnorr::authentification::Authentification;
 use crate::schnorr::signature::Signature;
 
 pub mod authentification;
@@ -83,8 +86,13 @@ impl Builder {
     }
 
     pub(crate) fn check_authentification(&mut self) {
-        // self.builder.verify_authentification(ctx, auth);
-        unimplemented!()
+        let ctx = AuthentificationContextTarget {
+            public_key: self.private_inputs.credential.public_key,
+            nonce: self.public_inputs.nonce,
+            service: self.public_inputs.service,
+        };
+        self.builder
+            .verify_authentification(&ctx, &self.private_inputs.authentification);
     }
 }
 
@@ -97,18 +105,21 @@ pub fn circuit() -> Circuit {
     let mut builder = Builder::setup();
     builder.check_majority();
     builder.check_signature();
+    builder.check_authentification();
     builder.build()
 }
 
 pub fn witness(
     credential: &Credential,
     signature: &Signature,
+    authentification: &Authentification,
     private_inputs: &inputs::Private<Target, BoolTarget>,
 ) -> anyhow::Result<PartialWitness<F>> {
     let mut pw = PartialWitness::new();
     let values = inputs::Private {
         credential: credential.to_field(),
         signature: signature.to_field(),
+        authentification: authentification.to_field(),
     };
     values.set(&mut pw, private_inputs)?;
     Ok(pw)
@@ -118,9 +129,15 @@ pub fn prove(
     circuit: &Circuit,
     credential: &Credential,
     signature: &Signature,
+    authentification: &Authentification,
     public_inputs: &inputs::Public<F>,
 ) -> anyhow::Result<ProofWithPublicInputs<F, C, D>> {
-    let mut pw = witness(credential, signature, &circuit.private_inputs)?;
+    let mut pw = witness(
+        credential,
+        signature,
+        authentification,
+        &circuit.private_inputs,
+    )?;
     public_inputs.set(&mut pw, &circuit.public_inputs)?;
     circuit.circuit.prove(pw)
 }

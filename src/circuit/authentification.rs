@@ -9,11 +9,7 @@ use plonky2::{
 };
 
 use crate::{
-    circuit::{
-        curve::{CircuitBuilderCurve, PartialWitnessCurve},
-        schnorr::{CircuitBuilderSchnorr, PartialWitnessSchnorr},
-        string::{CircuitBuilderString, PartialWitnessString},
-    },
+    circuit::schnorr::{CircuitBuilderSchnorr, PartialWitnessSchnorr},
     encoding::{self, LEN_POINT, LEN_STRING},
 };
 
@@ -23,11 +19,6 @@ pub type AuthentificationContextTarget = encoding::AuthentificationContext<Targe
 
 pub trait CircuitBuilderAuthentification<F: RichField + Extendable<D>, const D: usize> {
     fn add_virtual_authentification_target(&mut self) -> AuthentificationTarget;
-    fn add_virtual_authentification_context_target(&mut self) -> AuthentificationContextTarget;
-    fn register_authentification_context_public_input(
-        &mut self,
-        ctx: AuthentificationContextTarget,
-    );
     fn hash_authentification(
         &mut self,
         ctx: &AuthentificationContextTarget,
@@ -50,15 +41,6 @@ pub trait PartialWitnessAuthentification<F: RichField>: Witness<F> {
         target: AuthentificationTarget,
         value: encoding::Authentification<F, bool>,
     ) -> anyhow::Result<()>;
-    fn get_authentification_context_target(
-        &self,
-        target: AuthentificationContextTarget,
-    ) -> encoding::AuthentificationContext<F>;
-    fn set_authentification_context_target(
-        &mut self,
-        target: AuthentificationContextTarget,
-        value: encoding::AuthentificationContext<F>,
-    ) -> anyhow::Result<()>;
 }
 
 impl<F: RichField + Extendable<D>, const D: usize> CircuitBuilderAuthentification<F, D>
@@ -66,23 +48,6 @@ impl<F: RichField + Extendable<D>, const D: usize> CircuitBuilderAuthentificatio
 {
     fn add_virtual_authentification_target(&mut self) -> AuthentificationTarget {
         encoding::Authentification(self.add_virtual_schnorr_target())
-    }
-
-    fn add_virtual_authentification_context_target(&mut self) -> AuthentificationContextTarget {
-        AuthentificationContextTarget {
-            public_key: self.add_virtual_point_target(),
-            service: self.add_virtual_string_target(),
-            nonce: self.add_virtual_string_target(),
-        }
-    }
-
-    fn register_authentification_context_public_input(
-        &mut self,
-        ctx: AuthentificationContextTarget,
-    ) {
-        self.register_point_public_input(ctx.public_key);
-        self.register_string_public_input(ctx.service);
-        self.register_string_public_input(ctx.nonce);
     }
 
     fn hash_authentification(
@@ -122,27 +87,6 @@ impl<W: Witness<F>, F: RichField> PartialWitnessAuthentification<F> for W {
         value: encoding::Authentification<F, bool>,
     ) -> anyhow::Result<()> {
         self.set_schnorr_target(target.0, value.0)
-    }
-
-    fn get_authentification_context_target(
-        &self,
-        target: AuthentificationContextTarget,
-    ) -> encoding::AuthentificationContext<F> {
-        encoding::AuthentificationContext {
-            public_key: self.get_point_target(target.public_key),
-            service: self.get_string_target(target.service),
-            nonce: self.get_string_target(target.nonce),
-        }
-    }
-
-    fn set_authentification_context_target(
-        &mut self,
-        target: AuthentificationContextTarget,
-        value: encoding::AuthentificationContext<F>,
-    ) -> anyhow::Result<()> {
-        self.set_point_target(target.public_key, value.public_key)?;
-        self.set_string_target(target.service, value.service)?;
-        self.set_string_target(target.nonce, value.nonce)
     }
 }
 

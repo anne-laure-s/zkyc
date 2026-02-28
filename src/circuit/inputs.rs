@@ -11,6 +11,7 @@ use plonky2::{
 use crate::{
     bank,
     circuit::{
+        authentification::{CircuitBuilderAuthentification, PartialWitnessAuthentification},
         credential::{CircuitBuilderCredential, PartialWitnessCredential},
         curve::PartialWitnessCurve,
         signature::{CircuitBuilderSignature, PartialWitnessSignature},
@@ -36,6 +37,7 @@ pub struct Public<T> {
 pub struct Private<T, TBool> {
     pub(crate) credential: encoding::Credential<T, TBool>,
     pub(crate) signature: encoding::Signature<T, TBool>,
+    pub(crate) authentification: encoding::Authentification<T, TBool>,
 }
 
 pub const LEN_PUBLIC_INPUTS: usize = 1 + 1 + LEN_POINT + LEN_STRING * 2;
@@ -51,6 +53,7 @@ pub fn register<F: RichField + Extendable<D>, const D: usize>(
 ) -> (Public<Target>, Private<Target, BoolTarget>) {
     let credential = builder.add_virtual_credential_target();
     let signature = builder.add_virtual_signature_target();
+    let authentification = builder.add_virtual_authentification_target();
     let cutoff18_days = builder.add_virtual_target();
     let nonce = builder.add_virtual_string_target();
     let service = builder.add_virtual_string_target();
@@ -69,6 +72,7 @@ pub fn register<F: RichField + Extendable<D>, const D: usize>(
         Private {
             credential,
             signature,
+            authentification,
         },
     )
 }
@@ -81,7 +85,7 @@ impl<F: RichField> Private<F, bool> {
     ) -> anyhow::Result<()> {
         pw.set_credential_private_target(targets.credential, self.credential)?;
         pw.set_signature_target(targets.signature, self.signature)?;
-        Ok(())
+        pw.set_authentification_target(targets.authentification, self.authentification)
     }
 }
 
