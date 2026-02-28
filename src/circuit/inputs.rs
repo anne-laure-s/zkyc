@@ -10,11 +10,9 @@ use plonky2::{
 
 use crate::{
     circuit::{
-        credential::CircuitBuilderCredential,
+        credential::{CircuitBuilderCredential, PartialWitnessCredential},
         curve::PartialWitnessCurve,
-        passport_number::PartialWitnessPassportNumber,
         signature::{CircuitBuilderSignature, PartialWitnessSignature},
-        string::PartialWitnessString,
     },
     core::{credential::Nationality, date::cutoff18_from_today_for_tests},
     encoding::{
@@ -72,30 +70,8 @@ impl<F: RichField> Private<F, bool> {
         pw: &mut PartialWitness<F>,
         targets: &Private<Target, BoolTarget>,
     ) -> anyhow::Result<()> {
-        // credential
-        {
-            pw.set_string_target(targets.credential.first_name, self.credential.first_name)?;
-            pw.set_string_target(targets.credential.family_name, self.credential.family_name)?;
-            pw.set_string_target(
-                targets.credential.place_of_birth,
-                self.credential.place_of_birth,
-            )?;
-            pw.set_passport_number_target(
-                targets.credential.passport_number,
-                self.credential.passport_number,
-            )?;
-            pw.set_target(targets.credential.birth_date, self.credential.birth_date)?;
-            pw.set_target(
-                targets.credential.expiration_date,
-                self.credential.expiration_date,
-            )?;
-            pw.set_bool_target(targets.credential.gender, self.credential.gender)?;
-            pw.set_point_target(targets.credential.public_key, self.credential.public_key)?;
-        }
-        // signature
-        {
-            pw.set_signature_target(targets.signature, self.signature)?;
-        }
+        pw.set_credential_private_target(targets.credential, self.credential)?;
+        pw.set_signature_target(targets.signature, self.signature)?;
         Ok(())
     }
 }

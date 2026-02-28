@@ -37,6 +37,13 @@ pub trait PartialWitnessCredential<F: RichField>: Witness<F> {
         target: CredentialTarget,
         value: encoding::Credential<F, bool>,
     ) -> anyhow::Result<()>;
+    /// Set every private target of credential
+    /// Does not set public inputs (nationality & issuer)
+    fn set_credential_private_target(
+        &mut self,
+        target: CredentialTarget,
+        value: encoding::Credential<F, bool>,
+    ) -> anyhow::Result<()>;
 }
 
 impl<F: RichField + Extendable<D>, const D: usize> CircuitBuilderCredential<F, D>
@@ -91,6 +98,20 @@ impl<W: Witness<F>, F: RichField> PartialWitnessCredential<F> for W {
         self.set_bool_target(target.gender, value.gender)?;
         self.set_target(target.nationality, value.nationality)?;
         self.set_point_target(target.issuer, value.issuer)?;
+        self.set_point_target(target.public_key, value.public_key)
+    }
+    fn set_credential_private_target(
+        &mut self,
+        target: CredentialTarget,
+        value: encoding::Credential<F, bool>,
+    ) -> anyhow::Result<()> {
+        self.set_string_target(target.first_name, value.first_name)?;
+        self.set_string_target(target.family_name, value.family_name)?;
+        self.set_string_target(target.place_of_birth, value.place_of_birth)?;
+        self.set_passport_number_target(target.passport_number, value.passport_number)?;
+        self.set_target(target.birth_date, value.birth_date)?;
+        self.set_target(target.expiration_date, value.expiration_date)?;
+        self.set_bool_target(target.gender, value.gender)?;
         self.set_point_target(target.public_key, value.public_key)
     }
 }
