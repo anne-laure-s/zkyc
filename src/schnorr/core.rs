@@ -21,6 +21,7 @@ pub struct SchnorrProof {
 }
 
 impl SchnorrProof {
+    #[cfg(test)]
     pub fn get_nonce(&self) -> Point {
         self.r
     }
