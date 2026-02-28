@@ -42,6 +42,9 @@ impl<F: Field> FromBool<F> for bool {
 pub trait ToField<F: Field, const N: usize> {
     fn to_field(&self) -> [F; N];
 }
+pub trait ToStringField<F: Field> {
+    fn to_field(&self) -> encoding::String<F>;
+}
 
 pub trait ToSingleField<F: Field> {
     fn to_field(&self) -> F;
@@ -124,6 +127,15 @@ impl<F: Field> ToVecField<F> for &[u8] {
             res[count] = F::from_canonical_u32(u32::from_le_bytes(buf));
         }
         res
+    }
+}
+
+// TODO: all lengths should be checked at construction
+/// for now, 20 chars max, encoded on u32 converted to field elements
+/// TODO: compress using "u48" instead to gain space
+impl<F: Field> ToStringField<F> for String {
+    fn to_field(&self) -> encoding::String<F> {
+        encoding::String(self.as_bytes().to_field(LEN_STRING).try_into().unwrap())
     }
 }
 

@@ -11,8 +11,8 @@ use crate::{
     },
     encoding::{
         self,
-        conversion::{ToBool, ToField, ToPointField, ToSingleField, ToVecField},
-        LEN_PASSPORT_NUMBER, LEN_STRING,
+        conversion::{ToBool, ToField, ToPointField, ToSingleField, ToStringField, ToVecField},
+        LEN_PASSPORT_NUMBER,
     },
     issuer,
     schnorr::{
@@ -109,14 +109,6 @@ impl<F: Field> ToField<F, LEN_PASSPORT_NUMBER> for FrenchPassportNumber {
             .to_field(LEN_PASSPORT_NUMBER)
             .try_into()
             .unwrap()
-    }
-}
-
-// TODO: all lengths should be checked at construction
-/// for now, 20 chars max, encoded on u32 converted to field elements
-impl<F: Field> ToField<F, LEN_STRING> for String {
-    fn to_field(&self) -> [F; LEN_STRING] {
-        self.as_bytes().to_field(LEN_STRING).try_into().unwrap()
     }
 }
 
@@ -333,10 +325,10 @@ impl Credential {
 
     pub fn to_field<F: Field>(&self) -> encoding::Credential<F, bool> {
         encoding::Credential {
-            first_name: encoding::String(self.first_name.0.to_field()),
-            family_name: encoding::String(self.family_name.0.to_field()),
+            first_name: self.first_name.0.to_field(),
+            family_name: self.family_name.0.to_field(),
             birth_date: self.birth_date.to_field(),
-            place_of_birth: encoding::String(self.place_of_birth.0.to_field()),
+            place_of_birth: self.place_of_birth.0.to_field(),
             gender: self.gender.to_bool(),
             nationality: self.nationality.to_field(),
             passport_number: encoding::PassportNumber(self.passport_number.to_field()),
