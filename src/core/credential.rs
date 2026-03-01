@@ -204,6 +204,9 @@ impl Credential {
     pub fn issuer(&self) -> PublicKey {
         self.issuer.0.clone()
     }
+    pub fn public_key(&self) -> PublicKey {
+        self.public_key.clone()
+    }
     pub fn nationality(&self) -> &Nationality {
         &self.nationality
     }

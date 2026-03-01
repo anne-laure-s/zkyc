@@ -100,6 +100,10 @@ mod tests {
     use rand::{rngs::StdRng, SeedableRng};
 
     use crate::{
+        circuit::{
+            curve::{CircuitBuilderCurve, PartialWitnessCurve},
+            string::{CircuitBuilderString, PartialWitnessString},
+        },
         encoding::{
             conversion::{ToAuthentificationField, ToPointField},
             LEN_SCALAR,
@@ -131,6 +135,27 @@ mod tests {
         }
     }
 
+    fn add_virtual_authentification_context_target(
+        builder: &mut CircuitBuilder<F, D>,
+    ) -> AuthentificationContextTarget {
+        AuthentificationContextTarget {
+            public_key: builder.add_virtual_point_target(),
+            service: builder.add_virtual_string_target(),
+            nonce: builder.add_virtual_string_target(),
+        }
+    }
+
+    fn set_authentification_context_target(
+        pw: &mut PartialWitness<F>,
+        target: AuthentificationContextTarget,
+        value: encoding::AuthentificationContext<F>,
+    ) {
+        pw.set_point_target(target.public_key, value.public_key)
+            .unwrap();
+        pw.set_string_target(target.service, value.service).unwrap();
+        pw.set_string_target(target.nonce, value.nonce).unwrap();
+    }
+
     #[test]
     fn test_verify_auth_accepts() {
         let mut builder = CircuitBuilder::<F, D>::new(CircuitConfig::default());
@@ -139,12 +164,11 @@ mod tests {
         let auth = Authentification::sign(&sk, &ctx).to_field();
 
         let auth_t = builder.add_virtual_authentification_target();
-        let ctx_t = builder.add_virtual_authentification_context_target();
+        let ctx_t = add_virtual_authentification_context_target(&mut builder);
         builder.verify_authentification(&ctx_t, &auth_t);
 
         let mut pw = PartialWitness::<F>::new();
-        pw.set_authentification_context_target(ctx_t, ctx_to_target(&ctx))
-            .unwrap();
+        set_authentification_context_target(&mut pw, ctx_t, ctx_to_target(&ctx));
         pw.set_authentification_target(auth_t, auth).unwrap();
 
         let data = builder.build::<Cfg>();
@@ -162,12 +186,11 @@ mod tests {
         let ctx_bad = Context::new(&pk, b"service-B", b"nonce-1");
 
         let auth_t = builder.add_virtual_authentification_target();
-        let ctx_t = builder.add_virtual_authentification_context_target();
+        let ctx_t = add_virtual_authentification_context_target(&mut builder);
         builder.verify_authentification(&ctx_t, &auth_t);
 
         let mut pw = PartialWitness::<F>::new();
-        pw.set_authentification_context_target(ctx_t, ctx_to_target(&ctx_bad))
-            .unwrap();
+        set_authentification_context_target(&mut pw, ctx_t, ctx_to_target(&ctx_bad));
         pw.set_authentification_target(auth_t, auth).unwrap();
 
         let data = builder.build::<Cfg>();
@@ -185,12 +208,11 @@ mod tests {
         let ctx_bad = Context::new(&pk, b"service-A", b"nonce-2");
 
         let auth_t = builder.add_virtual_authentification_target();
-        let ctx_t = builder.add_virtual_authentification_context_target();
+        let ctx_t = add_virtual_authentification_context_target(&mut builder);
         builder.verify_authentification(&ctx_t, &auth_t);
 
         let mut pw = PartialWitness::<F>::new();
-        pw.set_authentification_context_target(ctx_t, ctx_to_target(&ctx_bad))
-            .unwrap();
+        set_authentification_context_target(&mut pw, ctx_t, ctx_to_target(&ctx_bad));
         pw.set_authentification_target(auth_t, auth).unwrap();
 
         let data = builder.build::<Cfg>();
@@ -210,12 +232,11 @@ mod tests {
         let ctx_bad = Context::new(&pk2, b"service-A", b"nonce-1");
 
         let auth_t = builder.add_virtual_authentification_target();
-        let ctx_t = builder.add_virtual_authentification_context_target();
+        let ctx_t = add_virtual_authentification_context_target(&mut builder);
         builder.verify_authentification(&ctx_t, &auth_t);
 
         let mut pw = PartialWitness::<F>::new();
-        pw.set_authentification_context_target(ctx_t, ctx_to_target(&ctx_bad))
-            .unwrap();
+        set_authentification_context_target(&mut pw, ctx_t, ctx_to_target(&ctx_bad));
         pw.set_authentification_target(auth_t, auth).unwrap();
 
         let data = builder.build::<Cfg>();
@@ -232,15 +253,14 @@ mod tests {
         let auth = Authentification::sign(&sk, &ctx);
 
         let auth_t = builder.add_virtual_authentification_target();
-        let ctx_t = builder.add_virtual_authentification_context_target();
+        let ctx_t = add_virtual_authentification_context_target(&mut builder);
         let e_t = builder.hash_authentification(&ctx_t, &auth_t);
         for b in e_t.0.iter() {
             builder.register_public_input(b.target);
         }
 
         let mut pw = PartialWitness::<F>::new();
-        pw.set_authentification_context_target(ctx_t, ctx_to_target(&ctx))
-            .unwrap();
+        set_authentification_context_target(&mut pw, ctx_t, ctx_to_target(&ctx));
         pw.set_authentification_target(auth_t, auth.to_field())
             .unwrap();
 
