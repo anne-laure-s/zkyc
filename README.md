@@ -55,6 +55,14 @@ We expect the credential of a person who dies to no longer be valid. The State m
 
 TODO: Each update involves a change in the Merkle path. The user needs a way to retrieve their Merkle path when needed.
 
+### Anonymization & Identity recovery
+
+Depending on the service, the issuer might need to keep the ability to track what an individual does. Typically, for banks, in case of criminal behavior, the State should have the ability to investigate and find the identity of the account holder.
+
+In this case, a pseudonym is derived from the client’s public key (witnessed and hidden, but known by the issuer) and computed as $\text{Hash}(\text{service} || \text{pk})$. This computation is proved in the circuit and its result is exposed as a public output.
+
+Thus, each service gets a different pseudonym. In case of State investigation, the issuer, knowing all the public keys, can test the public keys in its database to find the one that matches the given service.
+
 ## Stack
 
 Many of the following choices are made to optimize:
@@ -89,6 +97,7 @@ For a ZK-friendly signature scheme, we use Schnorr.
 ## TODO
 
 - [x] Base Schnorr implementation
-- [ ] Issuer signature verification (will add consistency between the credential and verified properties)
-- [ ] Authentication verification
-- [ ] Derive one key per service
+- [x] Issuer signature verification (will add consistency between the credential and verified properties)
+- [x] Authentication verification
+- [ ] Derive one pseudonym per service
+- [ ] Issuer Merkle proof
