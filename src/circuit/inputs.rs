@@ -133,6 +133,10 @@ impl<F: RichField> Public<F> {
             let value: encoding::String<F> = encoding::String(value);
             anyhow::ensure!(value == self.service, "public inputs mismatch for service");
         }
+        anyhow::ensure!(
+            end == LEN_PUBLIC_INPUTS,
+            "public inputs mismatch for lengths"
+        );
         Ok(())
     }
 
