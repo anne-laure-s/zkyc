@@ -18,7 +18,7 @@ pub const LEN_CREDENTIAL: usize = 3 * LEN_STRING + LEN_PASSPORT_NUMBER + 4 + LEN
 pub const LEN_SIGNATURE: usize = LEN_POINT + LEN_SCALAR;
 
 /// Representation of a string inside a circuit
-#[derive(Clone, Copy, Debug)]
+#[derive(Clone, Copy, Debug, PartialEq, Eq)]
 pub struct String<T>(pub [T; LEN_STRING]);
 /// Representation of a passport number inside a circuit.
 /// Passport number is assumed to b french (fits on 9 u8)
@@ -70,8 +70,6 @@ pub struct Signature<T, TBool>(pub(crate) SchnorrProof<T, TBool>);
 
 #[derive(Clone, Copy, Debug)]
 pub struct Authentification<T, TBool>(pub(crate) SchnorrProof<T, TBool>);
-
-#[derive(Clone, Copy, Debug)]
 // TODO: maybe service & nonce should have a longer type
 pub struct AuthentificationContext<T> {
     pub public_key: Point<T>,

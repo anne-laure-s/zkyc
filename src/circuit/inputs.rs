@@ -105,8 +105,10 @@ impl<F: RichField> Public<F> {
             proved[0] == self.nationality,
             "public inputs mismatch for nationality"
         );
+        let mut start = 1;
+        let mut end = start + LEN_POINT;
         {
-            let value: [F; LEN_POINT] = proved[1..LEN_POINT + 1].try_into().unwrap();
+            let value: [F; LEN_POINT] = proved[start..end].try_into().unwrap();
             let value: encoding::Point<F> = value.into();
             anyhow::ensure!(
                 value == self.issuer_pk,
@@ -117,6 +119,20 @@ impl<F: RichField> Public<F> {
             proved[LEN_POINT + 1] == self.cutoff18_days,
             "public inputs mismatch for cutoff18_days"
         );
+        start = LEN_POINT + 2;
+        end = start + LEN_STRING;
+        {
+            let value: [F; LEN_STRING] = proved[start..end].try_into().unwrap();
+            let value: encoding::String<F> = encoding::String(value);
+            anyhow::ensure!(value == self.nonce, "public inputs mismatch for nonce");
+        }
+        start = end;
+        end = start + LEN_STRING;
+        {
+            let value: [F; LEN_STRING] = proved[start..end].try_into().unwrap();
+            let value: encoding::String<F> = encoding::String(value);
+            anyhow::ensure!(value == self.service, "public inputs mismatch for service");
+        }
         Ok(())
     }
 
