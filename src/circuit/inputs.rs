@@ -14,6 +14,7 @@ use crate::{
         authentification::{CircuitBuilderAuthentification, PartialWitnessAuthentification},
         credential::{CircuitBuilderCredential, PartialWitnessCredential},
         curve::PartialWitnessCurve,
+        pseudonym::{CircuitBuilderPseudonym, PartialWitnessPseudonym},
         signature::{CircuitBuilderSignature, PartialWitnessSignature},
         string::{CircuitBuilderString, PartialWitnessString},
     },
@@ -21,7 +22,7 @@ use crate::{
     encoding::{
         self,
         conversion::{ToPointField, ToSingleField, ToStringField},
-        LEN_CREDENTIAL, LEN_POINT, LEN_STRING,
+        LEN_CREDENTIAL, LEN_POINT, LEN_PSEUDONYM, LEN_STRING,
     },
     issuer,
     schnorr::keys::PublicKey,
@@ -33,6 +34,7 @@ pub struct Public<T> {
     pub(crate) issuer_pk: encoding::Point<T>,
     pub(crate) nonce: encoding::String<T>,
     pub(crate) service: encoding::String<T>,
+    pub(crate) pseudonym: encoding::Pseudonym<T>,
 }
 pub struct Private<T, TBool> {
     pub(crate) credential: encoding::Credential<T, TBool>,
@@ -40,7 +42,7 @@ pub struct Private<T, TBool> {
     pub(crate) authentification: encoding::Authentification<T, TBool>,
 }
 
-pub const LEN_PUBLIC_INPUTS: usize = 1 + 1 + LEN_POINT + LEN_STRING * 2;
+pub const LEN_PUBLIC_INPUTS: usize = 1 + 1 + LEN_POINT + LEN_STRING * 2 + LEN_PSEUDONYM;
 
 /// len(credential) + len(signature.r); signature.s is BoolTarget so it's
 /// processed differently
@@ -57,10 +59,14 @@ pub fn register<F: RichField + Extendable<D>, const D: usize>(
     let cutoff18_days = builder.add_virtual_target();
     let nonce = builder.add_virtual_string_target();
     let service = builder.add_virtual_string_target();
+    let pseudonym = builder.add_virtual_pseudonym_target();
+
     builder.register_credential_public_input(credential);
     builder.register_public_input(cutoff18_days);
     builder.register_string_public_input(nonce);
     builder.register_string_public_input(service);
+    builder.register_pseudonym_public_input(pseudonym);
+
     (
         Public {
             cutoff18_days,
@@ -68,6 +74,7 @@ pub fn register<F: RichField + Extendable<D>, const D: usize>(
             issuer_pk: credential.issuer,
             nonce,
             service,
+            pseudonym,
         },
         Private {
             credential,
@@ -95,7 +102,8 @@ impl<F: RichField> Public<F> {
         pw.set_point_target(targets.issuer_pk, self.issuer_pk)?;
         pw.set_target(targets.cutoff18_days, self.cutoff18_days)?;
         pw.set_string_target(targets.nonce, self.nonce)?;
-        pw.set_string_target(targets.service, self.service)
+        pw.set_string_target(targets.service, self.service)?;
+        pw.set_pseudonym_target(targets.pseudonym, self.pseudonym)
     }
 
     // TODO: distinguish error from proof verification & public input checks
@@ -133,6 +141,16 @@ impl<F: RichField> Public<F> {
             let value: encoding::String<F> = encoding::String(value);
             anyhow::ensure!(value == self.service, "public inputs mismatch for service");
         }
+        start = end;
+        end = start + LEN_PSEUDONYM;
+        {
+            let value: [F; LEN_PSEUDONYM] = proved[start..end].try_into().unwrap();
+            let value: encoding::Pseudonym<F> = encoding::Pseudonym(value);
+            anyhow::ensure!(
+                value == self.pseudonym,
+                "public inputs mismatch for pseudonym"
+            );
+        }
         anyhow::ensure!(
             end == LEN_PUBLIC_INPUTS,
             "public inputs mismatch for lengths"
@@ -140,23 +158,33 @@ impl<F: RichField> Public<F> {
         Ok(())
     }
 
+    // TODO: pseudonym should be given directly and not recomputed (it shouldn’t be computable by the bank)
     pub fn new() -> Self {
+        let service = bank::service();
+        let client_pk = crate::client::keys::public();
+        let pseudonym = issuer::pseudonym::hash_from_service(&service, &client_pk);
+
         Self {
             cutoff18_days: cutoff18_from_today_for_tests().to_field(),
             nationality: Nationality::FR.to_field(),
             issuer_pk: issuer::keys::public().0.to_field(),
             nonce: bank::nonce().to_field(),
-            service: bank::service().to_field(),
+            service: service.to_field(),
+            pseudonym: (&pseudonym).into(),
         }
     }
 
     pub fn new_with_pk(issuer_pk: PublicKey) -> Self {
+        let service = bank::service();
+        let client_pk = crate::client::keys::public();
+        let pseudonym = issuer::pseudonym::hash_from_service(&service, &client_pk);
         Self {
             cutoff18_days: cutoff18_from_today_for_tests().to_field(),
             nationality: Nationality::FR.to_field(),
             issuer_pk: issuer_pk.0.to_field(),
             nonce: bank::nonce().to_field(),
-            service: bank::service().to_field(),
+            service: service.to_field(),
+            pseudonym: (&pseudonym).into(),
         }
     }
 }

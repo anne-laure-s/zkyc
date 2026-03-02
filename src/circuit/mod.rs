@@ -2,6 +2,7 @@
 
 use plonky2::iop::target::BoolTarget;
 use plonky2::{
+    hash::poseidon::PoseidonHash,
     iop::{target::Target, witness::PartialWitness},
     plonk::{
         circuit_builder::CircuitBuilder,
@@ -17,6 +18,7 @@ use crate::circuit::authentification::{
 use crate::circuit::signature::CircuitBuilderSignature;
 use crate::core::credential::Credential;
 use crate::encoding::conversion::{ToAuthentificationField, ToSignatureField};
+use crate::encoding::{LEN_POINT, LEN_PSEUDONYM, LEN_STRING};
 use crate::schnorr::authentification::Authentification;
 use crate::schnorr::signature::Signature;
 
@@ -26,6 +28,7 @@ pub mod curve;
 pub mod gfp5;
 pub mod inputs;
 pub mod passport_number;
+pub mod pseudonym;
 pub mod scalar;
 pub mod schnorr;
 pub mod signature;
@@ -94,6 +97,18 @@ impl Builder {
         self.builder
             .verify_authentification(&ctx, &self.private_inputs.authentification);
     }
+
+    pub(crate) fn check_pseudonym(&mut self) {
+        let mut to_hash: Vec<Target> = Vec::with_capacity(LEN_STRING + LEN_POINT);
+        to_hash.extend_from_slice(&self.public_inputs.service.0);
+        let public_key: [Target; LEN_POINT] = self.private_inputs.credential.public_key.into();
+        to_hash.extend_from_slice(&public_key);
+        let got = self.builder.hash_n_to_hash_no_pad::<PoseidonHash>(to_hash);
+        for i in 0..LEN_PSEUDONYM {
+            self.builder
+                .connect(got.elements[i], self.public_inputs.pseudonym.0[i]);
+        }
+    }
 }
 
 /// Prove that client knows a credential such that:
@@ -106,6 +121,7 @@ pub fn circuit() -> Circuit {
     builder.check_majority();
     builder.check_signature();
     builder.check_authentification();
+    builder.check_pseudonym();
     builder.build()
 }
 
@@ -165,6 +181,7 @@ mod tests {
         core::{credential::Credential, date::cutoff18_from_today_for_tests},
         encoding::conversion::{ToPointField, ToSingleField, ToStringField},
         issuer,
+        issuer::pseudonym,
         schnorr::{
             authentification::{Authentification, Context as AuthentificationContext},
             keys::SecretKey,
@@ -173,12 +190,14 @@ mod tests {
     };
 
     fn matching_public_inputs(credential: &Credential) -> inputs::Public<F> {
+        let service = bank::service();
         inputs::Public {
             cutoff18_days: cutoff18_from_today_for_tests().to_field(),
             nationality: credential.nationality().to_field(),
             issuer_pk: credential.issuer().0.to_field(),
             nonce: bank::nonce().to_field(),
-            service: bank::service().to_field(),
+            service: service.to_field(),
+            pseudonym: pseudonym::hash_from_service(&service, &credential.public_key()),
         }
     }
 
@@ -261,6 +280,25 @@ mod tests {
         public_inputs.nationality = F::from_canonical_u64(251);
 
         let c = circuit_without_signature();
+        let result = prove(
+            &c,
+            &credential,
+            &signature,
+            &authentification,
+            &public_inputs,
+        );
+        assert!(result.is_err());
+    }
+
+    #[test]
+    fn prove_rejects_wrong_pseudonym_public_input() {
+        let mut rng = StdRng::seed_from_u64(33);
+        let (credential, signature, authentification) =
+            valid_credential_signature_and_authentification(&mut rng);
+        let mut public_inputs = matching_public_inputs(&credential);
+        public_inputs.pseudonym.0[0] += F::ONE;
+
+        let c = circuit();
         let result = prove(
             &c,
             &credential,

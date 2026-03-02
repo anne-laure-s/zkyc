@@ -1,4 +1,7 @@
-use plonky2::{field::types::Field, hash::hash_types::RichField};
+use plonky2::{
+    field::types::{Field, PrimeField64},
+    hash::hash_types::RichField,
+};
 
 use super::Point;
 use crate::{
@@ -9,6 +12,7 @@ use crate::{
     encoding::{
         self, LEN_CREDENTIAL, LEN_FIELD, LEN_PASSPORT_NUMBER, LEN_POINT, LEN_SCALAR, LEN_STRING,
     },
+    issuer::pseudonym::Pseudonym,
 };
 
 pub trait ToBool<TBool> {
@@ -183,6 +187,12 @@ impl<F: RichField> From<encoding::GFp5<F>> for GFp5 {
 impl<F: RichField> From<GFp5> for encoding::GFp5<F> {
     fn from(value: GFp5) -> Self {
         Self(value.0.map(|x| F::from_canonical_u64(x.to_u64())))
+    }
+}
+
+impl<F: RichField> From<&Pseudonym> for encoding::Pseudonym<F> {
+    fn from(value: &Pseudonym) -> Self {
+        Self(value.0.map(|x| F::from_canonical_u64(x.to_canonical_u64())))
     }
 }
 
