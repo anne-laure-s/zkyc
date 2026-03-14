@@ -5,6 +5,7 @@ pub mod client;
 pub mod core;
 pub mod encoding;
 pub mod issuer;
+pub mod merkle;
 pub mod schnorr;
 
 #[cfg(test)]
