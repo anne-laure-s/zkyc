@@ -341,3 +341,16 @@ impl Credential {
         }
     }
 }
+
+/// TODO: here we assume implicitely that two different credentials can’t have
+/// the same public key
+/// If kept, this choice must be ensured by the issuer: when issuing a new
+/// credential, he must ensure that the public_key is not already used.
+/// An advantage of public_key unicity is it allows uniqueness of pseudonym.
+impl PartialEq for Credential {
+    fn eq(&self, other: &Self) -> bool {
+        self.public_key.0.equals(other.public_key.0) == u64::MAX
+    }
+}
+
+impl Eq for Credential {}
