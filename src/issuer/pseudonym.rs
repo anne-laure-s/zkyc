@@ -1,6 +1,4 @@
-use plonky2::{
-    field::goldilocks_field::GoldilocksField, hash::poseidon::PoseidonHash, plonk::config::Hasher,
-};
+use plonky2::field::goldilocks_field::GoldilocksField;
 
 use crate::{
     encoding::{
@@ -8,24 +6,20 @@ use crate::{
         conversion::{ToPointField, ToStringField},
         LEN_POINT, LEN_STRING,
     },
+    merkle::hash,
     schnorr::keys::PublicKey,
 };
 
 pub type Pseudonym = encoding::Pseudonym<GoldilocksField>;
 
-pub fn hash(
-    service: encoding::String<GoldilocksField>,
-    public_key: encoding::Point<GoldilocksField>,
-) -> Pseudonym {
+pub fn hash_from_service(service: &str, public_key: &PublicKey) -> Pseudonym {
+    let service = service.to_string().to_field();
+    let public_key = public_key.0.to_field();
     let mut message = Vec::with_capacity(LEN_STRING + LEN_POINT);
     message.extend_from_slice(&service.0);
     let public_key: [GoldilocksField; LEN_POINT] = public_key.into();
     message.extend_from_slice(&public_key);
-    encoding::Pseudonym(PoseidonHash::hash_no_pad(&message).elements)
-}
-
-pub fn hash_from_service(service: &str, public_key: &PublicKey) -> Pseudonym {
-    hash(service.to_string().to_field(), public_key.0.to_field())
+    encoding::Pseudonym(hash::poseidon(&message))
 }
 
 #[cfg(test)]
