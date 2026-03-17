@@ -1,21 +1,18 @@
+use crate::encoding::{Hash, LEN_HASH};
+use crate::{core::credential::Credential, encoding::LEN_CREDENTIAL};
 use plonky2::{
     hash::{hash_types::RichField, poseidon::PoseidonHash},
     plonk::config::Hasher,
 };
 
-use crate::{core::credential::Credential, encoding::LEN_CREDENTIAL};
-
 // FIXME: add tags
-// FIXME: centralize every hash of the repository (this, schnorr, etc)
-pub const LEN_HASH: usize = 4;
-pub type Hash<F> = [F; LEN_HASH];
 
 pub fn empty<F: RichField>() -> Hash<F> {
-    [F::ZERO; LEN_HASH]
+    Hash([F::ZERO; LEN_HASH])
 }
 
 pub fn poseidon<F: RichField>(base_inputs: &[F]) -> Hash<F> {
-    PoseidonHash::hash_no_pad(base_inputs).elements
+    Hash(PoseidonHash::hash_no_pad(base_inputs).elements)
 }
 pub fn credential<F: RichField>(credential: &Credential) -> Hash<F> {
     let message: [F; LEN_CREDENTIAL] = (&credential.to_field()).into();
@@ -27,8 +24,8 @@ fn merge_with_buffer<F: RichField>(
     h1: &Hash<F>,
     h2: &Hash<F>,
 ) -> Hash<F> {
-    buffer[..LEN_HASH].copy_from_slice(h1);
-    buffer[LEN_HASH..].copy_from_slice(h2);
+    buffer[..LEN_HASH].copy_from_slice(&h1.0);
+    buffer[LEN_HASH..].copy_from_slice(&h2.0);
     poseidon(buffer)
 }
 

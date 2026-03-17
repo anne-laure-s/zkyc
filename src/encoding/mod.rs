@@ -17,8 +17,10 @@ pub const LEN_CREDENTIAL: usize = 3 * LEN_STRING + LEN_PASSPORT_NUMBER + 4 + LEN
 
 pub const LEN_SIGNATURE: usize = LEN_POINT + LEN_SCALAR;
 
+pub const LEN_HASH: usize = 4;
+
 /// Pseudonym is the result of poseidon, so it’s convenient to set it at 4
-pub const LEN_PSEUDONYM: usize = crate::merkle::hash::LEN_HASH;
+pub const LEN_PSEUDONYM: usize = LEN_HASH;
 
 /// Representation of a string inside a circuit
 #[derive(Clone, Copy, Debug, PartialEq, Eq)]
@@ -80,5 +82,8 @@ pub struct AuthentificationContext<T> {
     pub nonce: String<T>,
 }
 
+// FIXME: centralize every hash of the repository (this, schnorr, etc)
 #[derive(Clone, Copy, Debug, PartialEq, Eq)]
-pub struct Pseudonym<T>(pub [T; LEN_PSEUDONYM]);
+pub struct Hash<T>(pub [T; LEN_HASH]);
+
+pub type Pseudonym<T> = Hash<T>;

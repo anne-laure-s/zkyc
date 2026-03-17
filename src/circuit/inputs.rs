@@ -145,7 +145,7 @@ impl<F: RichField> Public<F> {
         end = start + LEN_PSEUDONYM;
         {
             let value: [F; LEN_PSEUDONYM] = proved[start..end].try_into().unwrap();
-            let value: encoding::Pseudonym<F> = encoding::Pseudonym(value);
+            let value: encoding::Pseudonym<F> = encoding::Hash(value);
             anyhow::ensure!(
                 value == self.pseudonym,
                 "public inputs mismatch for pseudonym"

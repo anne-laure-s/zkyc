@@ -19,7 +19,7 @@ pub fn hash_from_service(service: &str, public_key: &PublicKey) -> Pseudonym {
     message.extend_from_slice(&service.0);
     let public_key: [GoldilocksField; LEN_POINT] = public_key.into();
     message.extend_from_slice(&public_key);
-    encoding::Pseudonym(hash::poseidon(&message))
+    hash::poseidon(&message)
 }
 
 #[cfg(test)]

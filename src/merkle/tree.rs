@@ -1,10 +1,7 @@
-use crate::{
-    core::credential::Credential,
-    merkle::hash::{self, Hash},
-};
+use crate::encoding::Hash;
+use crate::{core::credential::Credential, merkle::hash};
 use plonky2::{field::types::Field, hash::hash_types::RichField};
 use thiserror::Error;
-
 // Poseidon hash outputs 4 elments
 
 // vec of size D; does not contain the root

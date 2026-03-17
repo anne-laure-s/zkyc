@@ -27,7 +27,7 @@ impl<F: RichField + Extendable<D>, const D: usize> CircuitBuilderPseudonym<F, D>
     for CircuitBuilder<F, D>
 {
     fn add_virtual_pseudonym_target(&mut self) -> PseudonymTarget {
-        encoding::Pseudonym(std::array::from_fn::<_, LEN_PSEUDONYM, _>(|_| {
+        encoding::Hash(std::array::from_fn::<_, LEN_PSEUDONYM, _>(|_| {
             self.add_virtual_target()
         }))
     }
@@ -40,7 +40,7 @@ impl<F: RichField + Extendable<D>, const D: usize> CircuitBuilderPseudonym<F, D>
 
 impl<W: Witness<F>, F: RichField> PartialWitnessPseudonym<F> for W {
     fn get_pseudonym_target(&self, target: PseudonymTarget) -> encoding::Pseudonym<F> {
-        encoding::Pseudonym(target.0.map(|t| self.get_target(t)))
+        encoding::Hash(target.0.map(|t| self.get_target(t)))
     }
     fn set_pseudonym_target(
         &mut self,
