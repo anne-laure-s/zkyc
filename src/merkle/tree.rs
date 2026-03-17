@@ -1,16 +1,13 @@
-use crate::encoding::Hash;
+use crate::encoding::{Hash, MerklePath};
 use crate::{core::credential::Credential, merkle::hash};
 use plonky2::{field::types::Field, hash::hash_types::RichField};
 use thiserror::Error;
 // Poseidon hash outputs 4 elments
 
-// vec of size D; does not contain the root
-type Path<const D: usize, F> = [Hash<F>; D];
-
 pub struct Proof<const D: usize, F> {
     // index of the queried credential in the tree
     index: usize,
-    path: Path<D, F>,
+    path: MerklePath<D, F>,
 }
 
 type Root<F> = Hash<F>;
@@ -107,17 +104,17 @@ impl<const D: usize, F: RichField> Tree<D, F> {
         self.leaves.iter().position(|c| c.equals(credential))
     }
 
-    fn path_from_position(&self, mut i: usize) -> Path<D, F> {
+    fn path_from_position(&self, mut i: usize) -> MerklePath<D, F> {
         let mut depth = 0;
-        let mut path = Vec::with_capacity(D);
+        let mut path = [hash::empty(); D];
         while depth < D {
             let is_left = i.is_multiple_of(2);
             let neighbor = if is_left { i + 1 } else { i - 1 };
-            path.push(self.nodes[depth][neighbor]);
+            path[depth] = self.nodes[depth][neighbor];
             depth += 1;
             i /= 2;
         }
-        path.try_into().unwrap()
+        MerklePath(path)
     }
 
     // TODO: update in batch can be optimized
@@ -175,12 +172,17 @@ impl<const D: usize, F: RichField> Tree<D, F> {
         let Proof { index, path } = proof;
         let credential_hash = hash::credential(credential);
         let (_, claimed_root) = path
+            .0
             .iter()
             .fold((index, credential_hash), |(i, acc), neighbor| {
                 (i / 2, hash::merge_left_right(&acc, neighbor, i))
             });
         claimed_root == root
     }
+}
+
+pub fn expand_tree<const D: usize, const E: usize, F: RichField>(_tree: Tree<D, F>) -> Tree<E, F> {
+    unimplemented!()
 }
 
 #[cfg(test)]

@@ -87,3 +87,7 @@ pub struct AuthentificationContext<T> {
 pub struct Hash<T>(pub [T; LEN_HASH]);
 
 pub type Pseudonym<T> = Hash<T>;
+
+// does not contain the root
+#[derive(Clone, Copy, Debug, PartialEq, Eq)]
+pub struct MerklePath<const D: usize, T>(pub [Hash<T>; D]);
