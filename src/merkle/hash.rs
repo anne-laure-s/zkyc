@@ -10,7 +10,7 @@ use crate::{core::credential::Credential, encoding::LEN_CREDENTIAL};
 pub const LEN_HASH: usize = 4;
 pub type Hash<F> = [F; LEN_HASH];
 
-pub fn empty_hash<F: RichField>() -> Hash<F> {
+pub fn empty<F: RichField>() -> Hash<F> {
     [F::ZERO; LEN_HASH]
 }
 
