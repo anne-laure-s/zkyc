@@ -14,7 +14,7 @@ use crate::{
         authentification::{CircuitBuilderAuthentification, PartialWitnessAuthentification},
         credential::{CircuitBuilderCredential, PartialWitnessCredential},
         curve::PartialWitnessCurve,
-        pseudonym::{CircuitBuilderPseudonym, PartialWitnessPseudonym},
+        hash::{CircuitBuilderHash, PartialWitnessHash},
         signature::{CircuitBuilderSignature, PartialWitnessSignature},
         string::{CircuitBuilderString, PartialWitnessString},
     },
@@ -59,13 +59,13 @@ pub fn register<F: RichField + Extendable<D>, const D: usize>(
     let cutoff18_days = builder.add_virtual_target();
     let nonce = builder.add_virtual_string_target();
     let service = builder.add_virtual_string_target();
-    let pseudonym = builder.add_virtual_pseudonym_target();
+    let pseudonym = builder.add_virtual_hash_target();
 
     builder.register_credential_public_input(credential);
     builder.register_public_input(cutoff18_days);
     builder.register_string_public_input(nonce);
     builder.register_string_public_input(service);
-    builder.register_pseudonym_public_input(pseudonym);
+    builder.register_hash_public_input(pseudonym);
 
     (
         Public {
@@ -103,7 +103,7 @@ impl<F: RichField> Public<F> {
         pw.set_target(targets.cutoff18_days, self.cutoff18_days)?;
         pw.set_string_target(targets.nonce, self.nonce)?;
         pw.set_string_target(targets.service, self.service)?;
-        pw.set_pseudonym_target(targets.pseudonym, self.pseudonym)
+        PartialWitnessHash::set_hash_target(pw, targets.pseudonym, self.pseudonym)
     }
 
     // TODO: distinguish error from proof verification & public input checks
