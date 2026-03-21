@@ -90,4 +90,8 @@ pub type Pseudonym<T> = Hash<T>;
 
 // does not contain the root
 #[derive(Clone, Copy, Debug, PartialEq, Eq)]
-pub struct MerklePath<const D: usize, T>(pub [Hash<T>; D]);
+pub struct MerklePath<const D: usize, T, TBool> {
+    pub path: [Hash<T>; D],
+    /// True for left, false for right
+    pub positions: [TBool; D],
+}

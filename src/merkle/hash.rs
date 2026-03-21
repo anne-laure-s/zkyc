@@ -35,10 +35,10 @@ fn merge<F: RichField>(h1: &Hash<F>, h2: &Hash<F>) -> Hash<F> {
 
 pub(crate) fn merge_left_right<F: RichField>(
     node: &Hash<F>,
+    is_left: bool,
     neighbor: &Hash<F>,
-    node_index: usize,
 ) -> Hash<F> {
-    if node_index.is_multiple_of(2) {
+    if is_left {
         merge(node, neighbor)
     } else {
         merge(neighbor, node)

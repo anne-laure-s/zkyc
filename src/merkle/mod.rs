@@ -6,13 +6,9 @@ use thiserror::Error;
 // FIXME: add tags in hash
 pub mod hash;
 
-pub struct Proof<const D: usize, F> {
-    // index of the queried credential in the tree
-    index: usize,
-    path: MerklePath<D, F>,
-}
+pub type Proof<const D: usize, F> = MerklePath<D, F, bool>;
 
-type Root<F> = Hash<F>;
+pub type Root<F> = Hash<F>;
 
 pub enum Leaf {
     Credential(Credential),
@@ -106,17 +102,19 @@ impl<const D: usize, F: RichField> Tree<D, F> {
         self.leaves.iter().position(|c| c.equals(credential))
     }
 
-    fn path_from_position(&self, mut i: usize) -> MerklePath<D, F> {
+    fn path_from_position(&self, mut i: usize) -> MerklePath<D, F, bool> {
         let mut depth = 0;
         let mut path = [hash::empty(); D];
+        let mut positions = [false; D];
         while depth < D {
             let is_left = i.is_multiple_of(2);
             let neighbor = if is_left { i + 1 } else { i - 1 };
             path[depth] = self.nodes[depth][neighbor];
+            positions[depth] = is_left;
             depth += 1;
             i /= 2;
         }
-        MerklePath(path)
+        MerklePath { path, positions }
     }
 
     // TODO: update in batch can be optimized
@@ -129,7 +127,7 @@ impl<const D: usize, F: RichField> Tree<D, F> {
             let is_left = i.is_multiple_of(2);
             let neighbor = if is_left { i + 1 } else { i - 1 };
             let n = self.nodes[depth][neighbor];
-            h = hash::merge_left_right(&h, &n, i);
+            h = hash::merge_left_right(&h, is_left, &n);
             depth += 1;
             i /= 2;
             self.nodes[depth][i] = h
@@ -163,21 +161,18 @@ impl<const D: usize, F: RichField> Tree<D, F> {
         let position = self.find(credential);
         match position {
             None => Err(Error::MissingCredential),
-            Some(index) => Ok(Proof {
-                index,
-                path: self.path_from_position(index),
-            }),
+            Some(index) => Ok(self.path_from_position(index)),
         }
     }
 
     pub fn verify(root: Root<F>, credential: &Credential, proof: Proof<D, F>) -> bool {
-        let Proof { index, path } = proof;
+        let MerklePath { positions, path } = proof;
         let credential_hash = hash::credential(credential);
-        let (_, claimed_root) = path
-            .0
+        let claimed_root = positions
             .iter()
-            .fold((index, credential_hash), |(i, acc), neighbor| {
-                (i / 2, hash::merge_left_right(&acc, neighbor, i))
+            .zip(path.iter())
+            .fold(credential_hash, |acc, (is_left, neighbor)| {
+                hash::merge_left_right(&acc, *is_left, neighbor)
             });
         claimed_root == root
     }
