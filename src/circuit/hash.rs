@@ -8,7 +8,7 @@ use plonky2::{
 
 use crate::encoding::{self, LEN_HASH};
 
-type HashTarget = encoding::Hash<Target>;
+pub type HashTarget = encoding::Hash<Target>;
 
 pub trait CircuitBuilderHash<F: RichField + Extendable<D>, const D: usize> {
     fn add_virtual_hash_target(&mut self) -> HashTarget;
