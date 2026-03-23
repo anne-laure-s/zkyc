@@ -28,6 +28,7 @@ pub mod curve;
 pub mod gfp5;
 pub mod hash;
 pub mod inputs;
+pub mod merkle;
 pub mod passport_number;
 pub mod scalar;
 pub mod schnorr;
