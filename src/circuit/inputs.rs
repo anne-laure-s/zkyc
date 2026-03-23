@@ -22,7 +22,7 @@ use crate::{
     encoding::{
         self,
         conversion::{ToPointField, ToSingleField, ToStringField},
-        LEN_CREDENTIAL, LEN_POINT, LEN_PSEUDONYM, LEN_STRING,
+        LEN_POINT, LEN_PSEUDONYM, LEN_STRING,
     },
     issuer,
     schnorr::keys::PublicKey,
@@ -43,10 +43,6 @@ pub struct Private<T, TBool> {
 }
 
 pub const LEN_PUBLIC_INPUTS: usize = 1 + 1 + LEN_POINT + LEN_STRING * 2 + LEN_PSEUDONYM;
-
-/// len(credential) + len(signature.r); signature.s is BoolTarget so it's
-/// processed differently
-pub const LEN_PRIVATE_INPUTS: usize = LEN_CREDENTIAL + LEN_POINT;
 
 /// Registers credential and signature, and registers nationality, issuer,
 /// nonce & service as public inputs
