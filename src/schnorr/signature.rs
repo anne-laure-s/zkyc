@@ -68,12 +68,6 @@ mod tests {
     use crate::{core::credential::Credential, schnorr::keys::SecretKey};
     use rand::{rngs::StdRng, SeedableRng};
 
-    fn credential_from_seed(seed: u64) -> (SecretKey, Credential) {
-        let mut rng = StdRng::seed_from_u64(seed);
-        let (_, sk, credential) = Credential::random(&mut rng);
-        (sk, credential)
-    }
-
     fn same_credential_different_issuer(
         seed: u64,
     ) -> (SecretKey, Credential, SecretKey, Credential) {
@@ -87,7 +81,7 @@ mod tests {
 
     #[test]
     fn sign_then_verify_ok() {
-        let (sk, credential) = credential_from_seed(1);
+        let (_, sk, credential) = Credential::from_seed(1);
         let ctx = Context::new(&credential);
 
         let sig = Signature::sign(&sk, &ctx);
@@ -96,14 +90,14 @@ mod tests {
 
     #[test]
     fn verify_fails_if_message_changes() {
-        let (sk, mut credential) = credential_from_seed(2);
+        let (_, sk, mut credential) = Credential::from_seed(2);
 
         let ctx_good = Context::new(&credential);
         let sig = Signature::sign(&sk, &ctx_good);
 
         credential.switch_names_char();
 
-        let (_sk, credential) = credential_from_seed(3);
+        let (_, _sk, credential) = Credential::from_seed(3);
 
         let ctx_bad = Context::new(&credential);
         assert!(!sig.verify(&ctx_bad));

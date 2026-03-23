@@ -185,24 +185,17 @@ pub fn expand_tree<const D: usize, const E: usize, F: RichField>(_tree: Tree<D, 
 #[cfg(test)]
 mod tests {
     use plonky2::field::goldilocks_field::GoldilocksField;
-    use rand::{rngs::StdRng, SeedableRng};
 
     use super::{hash, Error, Tree};
     use crate::core::credential::Credential;
 
-    fn credential_from_seed(seed: u64) -> Credential {
-        let mut rng = StdRng::seed_from_u64(seed);
-        let (_, _, credential) = Credential::random(&mut rng);
-        credential
-    }
-
     #[test]
     fn proof_round_trip_for_each_inserted_credential() {
         let credentials = vec![
-            credential_from_seed(1),
-            credential_from_seed(2),
-            credential_from_seed(3),
-            credential_from_seed(4),
+            Credential::from_seed(1).2,
+            Credential::from_seed(2).2,
+            Credential::from_seed(3).2,
+            Credential::from_seed(4).2,
         ];
         let tree = Tree::<2, GoldilocksField>::from(&credentials)
             .expect("distinct credentials should build a tree");
@@ -217,8 +210,8 @@ mod tests {
 
     #[test]
     fn verify_rejects_a_proof_for_a_different_credential() {
-        let credential_1 = credential_from_seed(10);
-        let credential_2 = credential_from_seed(11);
+        let (_, _, credential_1) = Credential::from_seed(10);
+        let (_, _, credential_2) = Credential::from_seed(11);
         let credentials = vec![credential_1.clone(), credential_2.clone()];
         let tree = Tree::<1, GoldilocksField>::from(&credentials)
             .expect("distinct credentials should build a tree");
@@ -232,8 +225,8 @@ mod tests {
 
     #[test]
     fn add_and_revoke_update_root_and_membership() {
-        let credential_1 = credential_from_seed(20);
-        let credential_2 = credential_from_seed(21);
+        let (_, _, credential_1) = Credential::from_seed(20);
+        let (_, _, credential_2) = Credential::from_seed(21);
         let credentials = vec![credential_1.clone()];
         let mut tree = Tree::<2, GoldilocksField>::from(&credentials)
             .expect("distinct credentials should build a tree");
@@ -269,9 +262,9 @@ mod tests {
 
     #[test]
     fn add_reports_duplicate_and_full_tree_errors() {
-        let credential_1 = credential_from_seed(30);
-        let credential_2 = credential_from_seed(31);
-        let credential_3 = credential_from_seed(32);
+        let (_, _, credential_1) = Credential::from_seed(30);
+        let (_, _, credential_2) = Credential::from_seed(31);
+        let (_, _, credential_3) = Credential::from_seed(32);
         let credentials = vec![credential_1.clone()];
         let mut tree = Tree::<1, GoldilocksField>::from(&credentials)
             .expect("distinct credentials should build a tree");
@@ -289,7 +282,7 @@ mod tests {
 
     #[test]
     fn from_rejects_duplicate_credentials() {
-        let credential = credential_from_seed(35);
+        let (_, _, credential) = Credential::from_seed(35);
         let credentials = vec![credential.clone(), credential];
         assert!(matches!(
             Tree::<1, GoldilocksField>::from(&credentials),
@@ -299,8 +292,8 @@ mod tests {
 
     #[test]
     fn revoke_missing_credential_returns_missing_credential_error() {
-        let credential_1 = credential_from_seed(40);
-        let credential_2 = credential_from_seed(41);
+        let (_, _, credential_1) = Credential::from_seed(40);
+        let (_, _, credential_2) = Credential::from_seed(41);
         let credentials = vec![credential_1];
         let mut tree = Tree::<1, GoldilocksField>::from(&credentials)
             .expect("distinct credentials should build a tree");

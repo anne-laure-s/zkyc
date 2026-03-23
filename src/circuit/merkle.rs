@@ -124,7 +124,6 @@ mod tests {
         iop::witness::PartialWitness,
         plonk::{circuit_data::CircuitConfig, config::PoseidonGoldilocksConfig},
     };
-    use rand::{rngs::StdRng, SeedableRng};
 
     use super::*;
     use crate::{
@@ -138,12 +137,6 @@ mod tests {
 
     const D: usize = 2;
     type Cfg = PoseidonGoldilocksConfig;
-
-    fn credential_from_seed(seed: u64) -> Credential {
-        let mut rng = StdRng::seed_from_u64(seed);
-        let (_, _, credential) = Credential::random(&mut rng);
-        credential
-    }
 
     #[test]
     fn test_register_merkle_proof_public_input_count() {
@@ -163,9 +156,9 @@ mod tests {
         let data = builder.build::<Cfg>();
 
         let credentials = vec![
-            credential_from_seed(1),
-            credential_from_seed(2),
-            credential_from_seed(3),
+            Credential::from_seed(1).2,
+            Credential::from_seed(2).2,
+            Credential::from_seed(3).2,
         ];
         let tree = Tree::<{ issuer::database::SIZE }, F>::from(&credentials).unwrap();
         let proof = tree.prove(&credentials[1]).unwrap();
@@ -186,10 +179,10 @@ mod tests {
     #[test]
     fn test_verify_merkle_proof_accepts_valid_proof() {
         let credentials = vec![
-            credential_from_seed(10),
-            credential_from_seed(11),
-            credential_from_seed(12),
-            credential_from_seed(13),
+            Credential::from_seed(10).2,
+            Credential::from_seed(11).2,
+            Credential::from_seed(12).2,
+            Credential::from_seed(13).2,
         ];
         let tree = Tree::<{ issuer::database::SIZE }, F>::from(&credentials).unwrap();
         let credential = credentials[2].clone();
@@ -219,10 +212,10 @@ mod tests {
     #[test]
     fn test_verify_merkle_proof_rejects_invalid_proof() {
         let credentials = vec![
-            credential_from_seed(10),
-            credential_from_seed(11),
-            credential_from_seed(12),
-            credential_from_seed(13),
+            Credential::from_seed(10).2,
+            Credential::from_seed(11).2,
+            Credential::from_seed(12).2,
+            Credential::from_seed(13).2,
         ];
         let tree = Tree::<{ issuer::database::SIZE }, F>::from(&credentials).unwrap();
         let credential = credentials[2].clone();

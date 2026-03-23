@@ -2,7 +2,7 @@ use std::fmt::Write;
 
 use chrono::{Datelike, NaiveDate};
 use plonky2::field::types::Field;
-use rand::Rng;
+use rand::{rngs::StdRng, Rng, SeedableRng};
 
 use crate::{
     client,
@@ -272,6 +272,11 @@ impl Credential {
             issuer: Issuer(issuer::keys::public()),
             public_key: client::keys::public(),
         }
+    }
+    pub fn from_seed(seed: u64) -> (SecretKey, SecretKey, Self) {
+        let mut rng = StdRng::seed_from_u64(seed);
+        let (sk_client, sk, credential) = Credential::random(&mut rng);
+        (sk_client, sk, credential)
     }
     pub fn switch_names_char(&mut self) {
         let c = self.first_name.0.pop().unwrap();
