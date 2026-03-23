@@ -72,6 +72,7 @@ impl<F: RichField + Extendable<D>, const D: usize> CircuitBuilderSchnorr<F, D>
 
         let mut bits: Vec<BoolTarget> = Vec::with_capacity(LEN_SCALAR);
 
+        // TODO: maybe hash_n_to_m_no_pad would be more appropriate, but extra-attention needs to be put on the out of circuit version
         let h0: HashOutTarget = self.hash_n_to_hash_no_pad::<PoseidonHash>(to_hash);
         for i in 0..4 {
             bits.extend(self.split_le(h0.elements[i], 64));
