@@ -15,6 +15,7 @@ use plonky2::{
 use crate::circuit::authentification::{
     AuthentificationContextTarget, CircuitBuilderAuthentification,
 };
+use crate::circuit::merkle::CircuitBuilderMerkleProof;
 use crate::circuit::signature::CircuitBuilderSignature;
 use crate::core::credential::Credential;
 use crate::encoding::conversion::{ToAuthentificationField, ToSignatureField};
@@ -111,19 +112,29 @@ impl Builder {
                 .connect(got.elements[i], self.public_inputs.pseudonym.0[i]);
         }
     }
+
+    pub(crate) fn check_merkle_proof(&mut self) {
+        self.builder.check_merkle_proof(
+            &self.private_inputs.credential,
+            self.private_inputs.merkle_path,
+            self.public_inputs.merkle_root,
+        );
+    }
 }
 
 /// Prove that client knows a credential such that:
 /// - Nationality = FR,
 /// - Age >= 18
 /// - Signed by issuer
-/// later : authentification check + non-revocation check (= is in the list of authorized keys)
+/// - User knows the private key for the credential
+/// - Credential is in the Merkle tree of valid credentials
 pub fn circuit() -> Circuit {
     let mut builder = Builder::setup();
     builder.check_majority();
     builder.check_signature();
     builder.check_authentification();
     builder.check_pseudonym();
+    builder.check_merkle_proof();
     builder.build()
 }
 
