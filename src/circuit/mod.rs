@@ -39,7 +39,7 @@ pub mod string;
 
 const D: usize = 2;
 type C = PoseidonGoldilocksConfig;
-type F = <C as GenericConfig<D>>::F;
+pub type F = <C as GenericConfig<D>>::F;
 
 pub struct Circuit {
     pub private_inputs: inputs::Private<Target, BoolTarget>,
