@@ -40,6 +40,7 @@ pub mod string;
 const D: usize = 2;
 type C = PoseidonGoldilocksConfig;
 pub type F = <C as GenericConfig<D>>::F;
+pub type ZkProof = ProofWithPublicInputs<F, C, D>;
 
 pub struct Circuit {
     pub private_inputs: inputs::Private<Target, BoolTarget>,
@@ -163,7 +164,7 @@ pub fn prove(
     authentification: &Authentification,
     merkle_path: &MerklePath<{ issuer::database::SIZE }, F, bool>,
     public_inputs: &inputs::Public<F>,
-) -> anyhow::Result<ProofWithPublicInputs<F, C, D>> {
+) -> anyhow::Result<ZkProof> {
     let mut pw = witness(
         credential,
         signature,
@@ -177,7 +178,7 @@ pub fn prove(
 
 pub fn verify(
     circuit: &CircuitData<F, C, D>,
-    proof: ProofWithPublicInputs<F, C, D>,
+    proof: ZkProof,
     public_inputs: inputs::Public<F>,
 ) -> anyhow::Result<()> {
     let proved_public_inputs = proof.public_inputs.clone();
