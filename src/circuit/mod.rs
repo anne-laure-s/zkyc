@@ -199,6 +199,7 @@ mod tests {
         core::{credential::Credential, date::cutoff18_from_today_for_tests},
         encoding::conversion::{ToPointField, ToSingleField, ToStringField},
         issuer::{self, database::for_tests, pseudonym},
+        merkle,
         schnorr::{
             authentification::{Authentification, Context as AuthentificationContext},
             keys::SecretKey,
@@ -258,7 +259,9 @@ mod tests {
             valid_credential_signature_and_authentification(0);
         let public_inputs = matching_public_inputs(&credential);
         let c = circuit();
-        let merkle_path = for_tests::DATABASE.proof(&credential);
+        let merkle_path = for_tests::DATABASE
+            .proof(&merkle::hash::credential(&credential))
+            .unwrap();
 
         let proof = prove(
             &c,
@@ -282,7 +285,9 @@ mod tests {
         public_inputs.issuer_pk = crate::schnorr::keys::PublicKey::from(&wrong_issuer_sk)
             .0
             .to_field();
-        let merkle_path = for_tests::DATABASE.proof(&credential);
+        let merkle_path = for_tests::DATABASE
+            .proof(&merkle::hash::credential(&credential))
+            .unwrap();
         let c = circuit_without_signature();
         let result = prove(
             &c,
@@ -301,7 +306,9 @@ mod tests {
             valid_credential_signature_and_authentification(3);
         let mut public_inputs = matching_public_inputs(&credential);
         public_inputs.nationality = F::from_canonical_u64(251);
-        let merkle_path = for_tests::DATABASE.proof(&credential);
+        let merkle_path = for_tests::DATABASE
+            .proof(&merkle::hash::credential(&credential))
+            .unwrap();
 
         let c = circuit_without_signature();
         let result = prove(
@@ -321,7 +328,9 @@ mod tests {
             valid_credential_signature_and_authentification(4);
         let mut public_inputs = matching_public_inputs(&credential);
         public_inputs.pseudonym.0[0] += F::ONE;
-        let merkle_path = for_tests::DATABASE.proof(&credential);
+        let merkle_path = for_tests::DATABASE
+            .proof(&merkle::hash::credential(&credential))
+            .unwrap();
 
         let c = circuit();
         let result = prove(
@@ -340,7 +349,9 @@ mod tests {
         let (credential, signature, authentification) =
             valid_credential_signature_and_authentification(5);
         let public_inputs = matching_public_inputs(&credential);
-        let merkle_path = for_tests::DATABASE.proof(&credential);
+        let merkle_path = for_tests::DATABASE
+            .proof(&merkle::hash::credential(&credential))
+            .unwrap();
         let c = circuit_without_signature();
         let proof = prove(
             &c,
@@ -364,7 +375,9 @@ mod tests {
         let (credential, signature, authentification) =
             valid_credential_signature_and_authentification(6);
         let public_inputs = matching_public_inputs(&credential);
-        let merkle_path = for_tests::DATABASE.proof(&credential);
+        let merkle_path = for_tests::DATABASE
+            .proof(&merkle::hash::credential(&credential))
+            .unwrap();
         let c = circuit_without_signature();
         let proof = prove(
             &c,
@@ -390,7 +403,9 @@ mod tests {
     fn verify_rejects_wrong_nationality_public_input() {
         let (credential, signature, authentification) =
             valid_credential_signature_and_authentification(7);
-        let merkle_path = for_tests::DATABASE.proof(&credential);
+        let merkle_path = for_tests::DATABASE
+            .proof(&merkle::hash::credential(&credential))
+            .unwrap();
         let public_inputs = matching_public_inputs(&credential);
         let c = circuit_without_signature();
         let proof = prove(
@@ -420,7 +435,7 @@ mod tests {
     //     let ctx = SignatureContext::new(&credential);
     //     let signature = Signature::sign(&issuer::keys::secret(), &ctx);
     //     let authentification = default_authentification();
-    //     let merkle_path = for_tests::DATABASE.proof(&credential);
+    //         let merkle_path = for_tests::DATABASE.proof(&merkle::hash::credential(&credential)).unwrap();
     //     let c = circuit_without_signature();
     //     let public_inputs = inputs::Public::new(issuer::database::for_tests::root());
 
@@ -445,7 +460,12 @@ mod tests {
         let ctx = SignatureContext::new(&credential);
         let signature = Signature::sign(&wrong_signing_sk, &ctx);
         let authentification = default_authentification();
-        let merkle_path = for_tests::DATABASE.proof(&credential);
+        let merkle_path = {
+            let credential_in_database = Credential::from_seed(0).2;
+            for_tests::DATABASE
+                .proof(&merkle::hash::credential(&credential_in_database))
+                .unwrap()
+        };
         let public_inputs = matching_public_inputs(&credential);
         let c = circuit();
 

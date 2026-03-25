@@ -161,13 +161,13 @@ mod tests {
             Credential::from_seed(3).2,
         ];
         let tree = Tree::<{ issuer::database::SIZE }, F>::from(&credentials).unwrap();
-        let proof = tree.prove(&credentials[1]).unwrap();
+        let proof = tree.prove_credential(&credentials[1]).unwrap();
 
         let mut pw = PartialWitness::<F>::new();
         pw.set_merkle_proof_target(proof_t, proof).unwrap();
 
         let got = pw.get_merkle_proof_target(proof_t);
-        let expected = tree.prove(&credentials[1]).unwrap();
+        let expected = tree.prove_credential(&credentials[1]).unwrap();
         assert_eq!(got, expected);
 
         let proof = data
@@ -186,7 +186,7 @@ mod tests {
         ];
         let tree = Tree::<{ issuer::database::SIZE }, F>::from(&credentials).unwrap();
         let credential = credentials[2].clone();
-        let proof = tree.prove(&credential).unwrap();
+        let proof = tree.prove_credential(&credential).unwrap();
         let root = tree.root();
 
         let config = CircuitConfig::default();
@@ -219,7 +219,7 @@ mod tests {
         ];
         let tree = Tree::<{ issuer::database::SIZE }, F>::from(&credentials).unwrap();
         let credential = credentials[2].clone();
-        let mut proof = tree.prove(&credential).unwrap();
+        let mut proof = tree.prove_credential(&credential).unwrap();
         proof.positions[0] = !proof.positions[0];
         let root = tree.root();
 
