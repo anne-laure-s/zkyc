@@ -1,4 +1,4 @@
-use crate::{circuit, core::credential::Credential, merkle};
+use crate::{circuit, core::credential::Credential, encoding, merkle};
 
 // TODO: for now, SIZE is very small for tests
 pub const SIZE: usize = 8;
@@ -8,6 +8,7 @@ pub struct Database(merkle::Tree<SIZE, circuit::F>);
 
 pub type Proof = merkle::Proof<SIZE, circuit::F>;
 pub type Root = merkle::Root<circuit::F>;
+pub type Hash = encoding::Hash<circuit::F>;
 
 impl Database {
     pub fn init(credentials: &[Credential]) -> Self {
@@ -18,8 +19,8 @@ impl Database {
         self.0.root()
     }
 
-    pub fn proof(&self, credential: &Credential) -> merkle::Result<Proof> {
-        self.0.prove(credential)
+    pub fn proof(&self, credential_hash: &Hash) -> merkle::Result<Proof> {
+        self.0.prove(credential_hash)
     }
 }
 

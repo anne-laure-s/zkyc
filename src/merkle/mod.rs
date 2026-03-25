@@ -102,6 +102,11 @@ impl<const D: usize, F: RichField> Tree<D, F> {
         self.leaves.iter().position(|c| c.equals(credential))
     }
 
+    /// Look for a hash in direct leaves hashes
+    pub fn find_hash(&self, credential_hash: &Hash<F>) -> Option<usize> {
+        self.nodes[0].iter().position(|h| h == credential_hash)
+    }
+
     fn path_from_position(&self, mut i: usize) -> MerklePath<D, F, bool> {
         let mut depth = 0;
         let mut path = [hash::empty(); D];
@@ -157,7 +162,15 @@ impl<const D: usize, F: RichField> Tree<D, F> {
         }
     }
 
-    pub fn prove(&self, credential: &Credential) -> Result<Proof<D, F>> {
+    pub fn prove(&self, credential_hash: &Hash<F>) -> Result<Proof<D, F>> {
+        let position = self.find_hash(credential_hash);
+        match position {
+            None => Err(Error::MissingCredential),
+            Some(index) => Ok(self.path_from_position(index)),
+        }
+    }
+
+    pub fn prove_credential(&self, credential: &Credential) -> Result<Proof<D, F>> {
         let position = self.find(credential);
         match position {
             None => Err(Error::MissingCredential),
@@ -202,7 +215,7 @@ mod tests {
 
         for credential in &credentials {
             let proof = tree
-                .prove(credential)
+                .prove_credential(credential)
                 .expect("credential should be in the tree");
             assert!(Tree::verify(tree.root(), credential, proof));
         }
@@ -217,7 +230,7 @@ mod tests {
             .expect("distinct credentials should build a tree");
 
         let proof = tree
-            .prove(&credential_1)
+            .prove_credential(&credential_1)
             .expect("credential_1 should be in the tree");
 
         assert!(!Tree::verify(tree.root(), &credential_2, proof));
@@ -238,19 +251,19 @@ mod tests {
         assert_ne!(root_after_add, root_before);
 
         let proof = tree
-            .prove(&credential_2)
+            .prove_credential(&credential_2)
             .expect("added credential should be provable");
         assert!(Tree::verify(root_after_add, &credential_2, proof));
 
         // re-prove because Proof does not implement Clone
         let proof_before_revoke = tree
-            .prove(&credential_2)
+            .prove_credential(&credential_2)
             .expect("added credential should be provable");
         tree.revoke(&credential_2)
             .expect("revoking an existing credential should succeed");
         assert_eq!(tree.root(), root_before);
         assert!(matches!(
-            tree.prove(&credential_2),
+            tree.prove_credential(&credential_2),
             Err(Error::MissingCredential)
         ));
         assert!(!Tree::verify(
