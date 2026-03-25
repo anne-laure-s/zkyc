@@ -18,8 +18,8 @@ impl Database {
         self.0.root()
     }
 
-    pub fn proof(&self, credential: &Credential) -> Proof {
-        self.0.prove(credential).unwrap()
+    pub fn proof(&self, credential: &Credential) -> merkle::Result<Proof> {
+        self.0.prove(credential)
     }
 }
 
