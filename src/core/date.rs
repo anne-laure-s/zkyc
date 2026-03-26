@@ -1,4 +1,4 @@
-use chrono::{Datelike, NaiveDate};
+use chrono::{Datelike, NaiveDate, Utc};
 use rand::Rng;
 
 const ORIGIN: NaiveDate = NaiveDate::from_ymd_opt(1900, 1, 1).unwrap();
@@ -52,6 +52,16 @@ pub fn days_from_origin(date: NaiveDate) -> u32 {
 /// returns the minimal numbers of days spent from ORIGIN to be eighteen today
 /// In the circuit we want days_from_origin(date) <= cutoff18
 pub fn cutoff18_from_today_for_tests() -> u32 {
-    let date_18 = NaiveDate::from_ymd_opt(TODAY_FOR_TESTS.year() - 18, 1, 1).unwrap();
+    cutoff18_from(TODAY_FOR_TESTS)
+}
+
+/// Returns the minimal number of days spent from ORIGIN to be eighteen today.
+/// In the circuit we want days_from_origin(date) <= cutoff18.
+pub fn cutoff18_from_today() -> u32 {
+    cutoff18_from(Utc::now().date_naive())
+}
+
+fn cutoff18_from(today: NaiveDate) -> u32 {
+    let date_18 = NaiveDate::from_ymd_opt(today.year() - 18, 1, 1).unwrap();
     days_from_origin(date_18)
 }
