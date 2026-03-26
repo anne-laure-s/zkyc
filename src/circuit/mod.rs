@@ -19,7 +19,9 @@ use crate::circuit::merkle::CircuitBuilderMerkleProof;
 use crate::circuit::signature::CircuitBuilderSignature;
 use crate::core::credential::Credential;
 use crate::encoding::conversion::{ToAuthentificationField, ToSignatureField};
-use crate::encoding::{MerklePath, LEN_POINT, LEN_PSEUDONYM, LEN_STRING};
+use crate::encoding::{
+    AuthentificationChallenge, MerklePath, LEN_POINT, LEN_PSEUDONYM, LEN_STRING,
+};
 use crate::issuer;
 use crate::schnorr::authentification::Authentification;
 use crate::schnorr::signature::Signature;
@@ -95,8 +97,10 @@ impl Builder {
     pub(crate) fn check_authentification(&mut self) {
         let ctx = AuthentificationContextTarget {
             public_key: self.private_inputs.credential.public_key,
-            nonce: self.public_inputs.nonce,
-            service: self.public_inputs.service,
+            challenge: AuthentificationChallenge {
+                nonce: self.public_inputs.nonce,
+                service: self.public_inputs.service,
+            },
         };
         self.builder
             .verify_authentification(&ctx, &self.private_inputs.authentification);

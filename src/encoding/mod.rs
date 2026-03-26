@@ -75,11 +75,15 @@ pub struct Signature<T, TBool>(pub(crate) SchnorrProof<T, TBool>);
 
 #[derive(Clone, Copy, Debug)]
 pub struct Authentification<T, TBool>(pub(crate) SchnorrProof<T, TBool>);
+
+pub struct AuthentificationChallenge<T> {
+    pub service: String<T>,
+    pub nonce: String<T>,
+}
 // TODO: maybe service & nonce should have a longer type
 pub struct AuthentificationContext<T> {
     pub public_key: Point<T>,
-    pub service: String<T>,
-    pub nonce: String<T>,
+    pub challenge: AuthentificationChallenge<T>,
 }
 
 // FIXME: centralize every hash of the repository (this, schnorr, etc)

@@ -56,8 +56,8 @@ impl<F: RichField + Extendable<D>, const D: usize> CircuitBuilderAuthentificatio
         auth: &AuthentificationTarget,
     ) -> encoding::Scalar<BoolTarget> {
         let mut message = Vec::with_capacity(2 * LEN_STRING + LEN_POINT);
-        message.extend_from_slice(&ctx.service.0);
-        message.extend_from_slice(&ctx.nonce.0);
+        message.extend_from_slice(&ctx.challenge.service.0);
+        message.extend_from_slice(&ctx.challenge.nonce.0);
         let public_key: [Target; LEN_POINT] = ctx.public_key.into();
         message.extend_from_slice(&public_key);
         self.schnorr_hash_with_message(auth.0, &message)
@@ -106,7 +106,7 @@ mod tests {
         },
         encoding::{
             conversion::{ToAuthentificationField, ToPointField},
-            LEN_SCALAR,
+            AuthentificationChallenge, LEN_SCALAR,
         },
         schnorr::{
             self,
@@ -130,8 +130,10 @@ mod tests {
     fn ctx_to_target(ctx: &Context) -> encoding::AuthentificationContext<F> {
         encoding::AuthentificationContext {
             public_key: ctx.public_key().0.to_field(),
-            service: encoding::String(ctx.service().map(|x| F::from_canonical_u64(x.0))),
-            nonce: encoding::String(ctx.nonce().map(|x| F::from_canonical_u64(x.0))),
+            challenge: AuthentificationChallenge {
+                service: encoding::String(ctx.service().map(|x| F::from_canonical_u64(x.0))),
+                nonce: encoding::String(ctx.nonce().map(|x| F::from_canonical_u64(x.0))),
+            },
         }
     }
 
@@ -140,8 +142,10 @@ mod tests {
     ) -> AuthentificationContextTarget {
         AuthentificationContextTarget {
             public_key: builder.add_virtual_point_target(),
-            service: builder.add_virtual_string_target(),
-            nonce: builder.add_virtual_string_target(),
+            challenge: AuthentificationChallenge {
+                service: builder.add_virtual_string_target(),
+                nonce: builder.add_virtual_string_target(),
+            },
         }
     }
 
@@ -152,8 +156,10 @@ mod tests {
     ) {
         pw.set_point_target(target.public_key, value.public_key)
             .unwrap();
-        pw.set_string_target(target.service, value.service).unwrap();
-        pw.set_string_target(target.nonce, value.nonce).unwrap();
+        pw.set_string_target(target.challenge.service, value.challenge.service)
+            .unwrap();
+        pw.set_string_target(target.challenge.nonce, value.challenge.nonce)
+            .unwrap();
     }
 
     #[test]

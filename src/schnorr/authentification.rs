@@ -7,6 +7,7 @@ use crate::encoding::conversion::ToAuthentificationField;
 use crate::encoding::conversion::ToPointField;
 use crate::encoding::conversion::ToSchnorrField;
 use crate::encoding::conversion::ToVecField;
+use crate::encoding::AuthentificationChallenge;
 use crate::encoding::LEN_STRING;
 
 use super::core::SchnorrProof;
@@ -78,8 +79,10 @@ impl<F: RichField> ToAuthentificationContextField<F> for Context {
     fn to_field(&self) -> encoding::AuthentificationContext<F> {
         encoding::AuthentificationContext {
             public_key: self.public_key.0.to_field(),
-            service: encoding::String(self.service.map(|x| F::from_canonical_u64(x.0))),
-            nonce: encoding::String(self.nonce.map(|x| F::from_canonical_u64(x.0))),
+            challenge: AuthentificationChallenge {
+                service: encoding::String(self.service.map(|x| F::from_canonical_u64(x.0))),
+                nonce: encoding::String(self.nonce.map(|x| F::from_canonical_u64(x.0))),
+            },
         }
     }
 }
