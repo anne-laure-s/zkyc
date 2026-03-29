@@ -131,8 +131,8 @@ mod tests {
         encoding::AuthentificationContext {
             public_key: ctx.public_key().0.to_field(),
             challenge: AuthentificationChallenge {
-                service: encoding::String(ctx.service().map(|x| F::from_canonical_u64(x.0))),
-                nonce: encoding::String(ctx.nonce().map(|x| F::from_canonical_u64(x.0))),
+                service: encoding::String(ctx.service().0.map(|x| F::from_canonical_u64(x.0))),
+                nonce: encoding::String(ctx.nonce().0.map(|x| F::from_canonical_u64(x.0))),
             },
         }
     }
@@ -166,7 +166,7 @@ mod tests {
     fn test_verify_auth_accepts() {
         let mut builder = CircuitBuilder::<F, D>::new(CircuitConfig::default());
         let (sk, pk) = keypair_from_seed(1);
-        let ctx = Context::new(&pk, b"service-A", b"nonce-1");
+        let ctx = Context::new(&pk, "service-A", "nonce-1");
         let auth = Authentification::sign(&sk, &ctx).to_field();
 
         let auth_t = builder.add_virtual_authentification_target();
@@ -186,10 +186,10 @@ mod tests {
     fn test_verify_auth_fails_if_service_changes() {
         let mut builder = CircuitBuilder::<F, D>::new(CircuitConfig::default());
         let (sk, pk) = keypair_from_seed(2);
-        let ctx_good = Context::new(&pk, b"service-A", b"nonce-1");
+        let ctx_good = Context::new(&pk, "service-A", "nonce-1");
         let auth = Authentification::sign(&sk, &ctx_good).to_field();
 
-        let ctx_bad = Context::new(&pk, b"service-B", b"nonce-1");
+        let ctx_bad = Context::new(&pk, "service-B", "nonce-1");
 
         let auth_t = builder.add_virtual_authentification_target();
         let ctx_t = add_virtual_authentification_context_target(&mut builder);
@@ -208,10 +208,10 @@ mod tests {
     fn test_verify_auth_fails_if_nonce_changes() {
         let mut builder = CircuitBuilder::<F, D>::new(CircuitConfig::default());
         let (sk, pk) = keypair_from_seed(3);
-        let ctx_good = Context::new(&pk, b"service-A", b"nonce-1");
+        let ctx_good = Context::new(&pk, "service-A", "nonce-1");
         let auth = Authentification::sign(&sk, &ctx_good).to_field();
 
-        let ctx_bad = Context::new(&pk, b"service-A", b"nonce-2");
+        let ctx_bad = Context::new(&pk, "service-A", "nonce-2");
 
         let auth_t = builder.add_virtual_authentification_target();
         let ctx_t = add_virtual_authentification_context_target(&mut builder);
@@ -232,10 +232,10 @@ mod tests {
         let (sk1, pk1) = keypair_from_seed(4);
         let (_sk2, pk2) = keypair_from_seed(5);
 
-        let ctx_good = Context::new(&pk1, b"service-A", b"nonce-1");
+        let ctx_good = Context::new(&pk1, "service-A", "nonce-1");
         let auth = Authentification::sign(&sk1, &ctx_good).to_field();
 
-        let ctx_bad = Context::new(&pk2, b"service-A", b"nonce-1");
+        let ctx_bad = Context::new(&pk2, "service-A", "nonce-1");
 
         let auth_t = builder.add_virtual_authentification_target();
         let ctx_t = add_virtual_authentification_context_target(&mut builder);
@@ -255,7 +255,7 @@ mod tests {
         let mut builder = CircuitBuilder::<F, D>::new(CircuitConfig::default());
 
         let (sk, pk) = keypair_from_seed(6);
-        let ctx = Context::new(&pk, b"service-A", b"nonce-1");
+        let ctx = Context::new(&pk, "service-A", "nonce-1");
         let auth = Authentification::sign(&sk, &ctx);
 
         let auth_t = builder.add_virtual_authentification_target();

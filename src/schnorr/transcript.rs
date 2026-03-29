@@ -51,10 +51,12 @@ pub fn hash(nonce: &Point, ctx: Context) -> Scalar {
         Context::Auth(ctx) => {
             f_message.extend_from_slice(
                 &ctx.service()
+                    .0
                     .map(|x| GoldilocksField::from_canonical_u64(x.0)),
             );
             f_message.extend_from_slice(
                 &ctx.nonce()
+                    .0
                     .map(|x| GoldilocksField::from_canonical_u64(x.0)),
             );
             // Public key is already in the credential
@@ -134,9 +136,9 @@ mod tests {
         let pk = pk_from_seed(100);
         let r = nonce_point_from_seed(200);
 
-        let ctx1 = authentification::Context::new(&pk, b"svcA", b"nonce1");
-        let ctx2 = authentification::Context::new(&pk, b"svcB", b"nonce1");
-        let ctx3 = authentification::Context::new(&pk, b"svcA", b"nonce2");
+        let ctx1 = authentification::Context::new(&pk, "svcA", "nonce1");
+        let ctx2 = authentification::Context::new(&pk, "svcB", "nonce1");
+        let ctx3 = authentification::Context::new(&pk, "svcA", "nonce2");
 
         let e1 = hash(&r, ctx1.to_context());
         let e2 = hash(&r, ctx2.to_context());
@@ -155,7 +157,7 @@ mod tests {
     #[test]
     fn challenge_is_bound_to_public_key() {
         let r = nonce_point_from_seed(4242);
-        let msg = b"bind-me".to_vec();
+        let msg = "bind-me";
         let pk1 = pk_from_seed(1);
         let pk2 = pk_from_seed(2);
 

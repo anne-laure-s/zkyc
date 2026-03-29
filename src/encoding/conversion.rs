@@ -10,7 +10,8 @@ use crate::{
         field::{GFp, GFp5},
     },
     encoding::{
-        self, LEN_CREDENTIAL, LEN_FIELD, LEN_PASSPORT_NUMBER, LEN_POINT, LEN_SCALAR, LEN_STRING,
+        self, AuthentificationChallenge, AuthentificationChallengeRaw, LEN_CREDENTIAL, LEN_FIELD,
+        LEN_PASSPORT_NUMBER, LEN_POINT, LEN_SCALAR, LEN_STRING,
     },
     issuer::pseudonym::Pseudonym,
 };
@@ -285,6 +286,15 @@ impl<T: Copy + ToBool<TBool>, TBool: Copy> From<&[T; LEN_CREDENTIAL]>
             nationality: value[POS_BIRTH_DATE + 3],
             issuer: issuer.into(),
             public_key: public_key.into(),
+        }
+    }
+}
+
+impl<F: Field> From<AuthentificationChallengeRaw<String>> for AuthentificationChallenge<F> {
+    fn from(value: AuthentificationChallengeRaw<String>) -> Self {
+        AuthentificationChallenge {
+            service: value.service.to_field(),
+            nonce: value.nonce.to_field(),
         }
     }
 }

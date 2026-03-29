@@ -6,9 +6,9 @@ use crate::encoding::conversion::ToAuthentificationContextField;
 use crate::encoding::conversion::ToAuthentificationField;
 use crate::encoding::conversion::ToPointField;
 use crate::encoding::conversion::ToSchnorrField;
-use crate::encoding::conversion::ToVecField;
+use crate::encoding::conversion::ToStringField;
 use crate::encoding::AuthentificationChallenge;
-use crate::encoding::LEN_STRING;
+use crate::encoding::AuthentificationChallengeRaw;
 
 use super::core::SchnorrProof;
 /// Authentification will be used by the user to prove that they knows the secret key tied to some public key
@@ -19,21 +19,32 @@ use super::transcript;
 pub struct Context {
     public_key: PublicKey,
     // TODO: ensure everything is ascii ?
-    // server service
-    service: [GoldilocksField; LEN_STRING],
-    // nonce from server, unique per session
-    nonce: [GoldilocksField; LEN_STRING],
-    // TODO: session_id, channel_id
+    challenge: AuthentificationChallengeRaw<encoding::String<GoldilocksField>>, // TODO: session_id, channel_id
 }
 
 impl Context {
     /// Creates a new context. Creates a copy of public_key and takes ownership
     /// of service & nonce
-    pub fn new(public_key: &PublicKey, service: &[u8], nonce: &[u8]) -> Self {
+    pub fn new(public_key: &PublicKey, service: &str, nonce: &str) -> Self {
         Self {
             public_key: public_key.clone(),
-            service: service.to_field(LEN_STRING).try_into().unwrap(),
-            nonce: nonce.to_field(LEN_STRING).try_into().unwrap(),
+            challenge: AuthentificationChallengeRaw {
+                service: service.to_string().to_field(),
+                nonce: nonce.to_string().to_field(),
+            },
+        }
+    }
+
+    pub fn from_challenge(
+        public_key: &PublicKey,
+        challenge: &AuthentificationChallengeRaw<String>,
+    ) -> Self {
+        Self {
+            public_key: public_key.clone(),
+            challenge: AuthentificationChallengeRaw {
+                service: challenge.service.to_field(),
+                nonce: challenge.nonce.to_field(),
+            },
         }
     }
 
@@ -41,12 +52,12 @@ impl Context {
         &self.public_key
     }
 
-    pub fn service(&self) -> &[GoldilocksField; LEN_STRING] {
-        &self.service
+    pub fn service(&self) -> &encoding::String<GoldilocksField> {
+        &self.challenge.service
     }
 
-    pub fn nonce(&self) -> &[GoldilocksField; LEN_STRING] {
-        &self.nonce
+    pub fn nonce(&self) -> &encoding::String<GoldilocksField> {
+        &self.challenge.nonce
     }
 
     pub fn to_context(&self) -> transcript::Context<'_> {
@@ -80,8 +91,10 @@ impl<F: RichField> ToAuthentificationContextField<F> for Context {
         encoding::AuthentificationContext {
             public_key: self.public_key.0.to_field(),
             challenge: AuthentificationChallenge {
-                service: encoding::String(self.service.map(|x| F::from_canonical_u64(x.0))),
-                nonce: encoding::String(self.nonce.map(|x| F::from_canonical_u64(x.0))),
+                service: encoding::String(
+                    self.challenge.service.0.map(|x| F::from_canonical_u64(x.0)),
+                ),
+                nonce: encoding::String(self.challenge.nonce.0.map(|x| F::from_canonical_u64(x.0))),
             },
         }
     }
@@ -103,7 +116,7 @@ mod tests {
     #[test]
     fn auth_sign_then_verify_ok() {
         let (sk, pk) = keypair_from_seed(1);
-        let ctx = Context::new(&pk, b"service-A", b"nonce-1");
+        let ctx = Context::new(&pk, "service-A", "nonce-1");
 
         let auth = Authentification::sign(&sk, &ctx);
         assert!(auth.verify(&ctx));
@@ -113,10 +126,10 @@ mod tests {
     fn verify_fails_if_service_changes() {
         let (sk, pk) = keypair_from_seed(2);
 
-        let ctx_good = Context::new(&pk, b"service-A", b"nonce-1");
+        let ctx_good = Context::new(&pk, "service-A", "nonce-1");
         let auth = Authentification::sign(&sk, &ctx_good);
 
-        let ctx_bad = Context::new(&pk, b"service-B", b"nonce-1");
+        let ctx_bad = Context::new(&pk, "service-B", "nonce-1");
         assert!(!auth.verify(&ctx_bad));
     }
 
@@ -124,10 +137,10 @@ mod tests {
     fn verify_fails_if_nonce_changes() {
         let (sk, pk) = keypair_from_seed(3);
 
-        let ctx_good = Context::new(&pk, b"service-A", b"nonce-1");
+        let ctx_good = Context::new(&pk, "service-A", "nonce-1");
         let auth = Authentification::sign(&sk, &ctx_good);
 
-        let ctx_bad = Context::new(&pk, b"service-A", b"nonce-2");
+        let ctx_bad = Context::new(&pk, "service-A", "nonce-2");
         assert!(!auth.verify(&ctx_bad));
     }
 
@@ -136,10 +149,10 @@ mod tests {
         let (sk1, pk1) = keypair_from_seed(4);
         let (_sk2, pk2) = keypair_from_seed(5);
 
-        let ctx1 = Context::new(&pk1, b"service-A", b"nonce-1");
+        let ctx1 = Context::new(&pk1, "service-A", "nonce-1");
         let auth = Authentification::sign(&sk1, &ctx1);
 
-        let ctx_other_pk = Context::new(&pk2, b"service-A", b"nonce-1");
+        let ctx_other_pk = Context::new(&pk2, "service-A", "nonce-1");
         assert!(!auth.verify(&ctx_other_pk));
     }
 }

@@ -76,10 +76,15 @@ pub struct Signature<T, TBool>(pub(crate) SchnorrProof<T, TBool>);
 #[derive(Clone, Copy, Debug)]
 pub struct Authentification<T, TBool>(pub(crate) SchnorrProof<T, TBool>);
 
-pub struct AuthentificationChallenge<T> {
-    pub service: String<T>,
-    pub nonce: String<T>,
+#[derive(Clone, Copy, Debug, PartialEq, Eq)]
+pub struct AuthentificationChallengeRaw<S> {
+    /// service, unique per bank
+    pub service: S,
+    /// nonce, unique per connection
+    pub nonce: S,
 }
+
+pub type AuthentificationChallenge<T> = AuthentificationChallengeRaw<String<T>>;
 // TODO: maybe service & nonce should have a longer type
 pub struct AuthentificationContext<T> {
     pub public_key: Point<T>,

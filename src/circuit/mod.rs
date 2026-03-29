@@ -235,11 +235,7 @@ mod tests {
         let signature = Signature::sign(&issuer_sk, &SignatureContext::new(&credential));
         let service = bank::service();
         let nonce = bank::nonce();
-        let auth_ctx = AuthentificationContext::new(
-            &credential.public_key(),
-            service.as_bytes(),
-            nonce.as_bytes(),
-        );
+        let auth_ctx = AuthentificationContext::new(&credential.public_key(), &service, &nonce);
         let authentification = Authentification::sign(&client_sk, &auth_ctx);
         (credential, signature, authentification)
     }
@@ -247,7 +243,7 @@ mod tests {
     fn default_authentification() -> Authentification {
         let sk = client::keys::secret();
         let pk = crate::schnorr::keys::PublicKey::from(&sk);
-        let ctx = AuthentificationContext::new(&pk, b"any-service", b"any-nonce");
+        let ctx = AuthentificationContext::new(&pk, "any-service", "any-nonce");
         Authentification::sign(&sk, &ctx)
     }
     fn circuit_without_signature() -> Circuit {
